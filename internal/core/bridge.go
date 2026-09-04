@@ -1,6 +1,9 @@
 package core
 
-import "net/url"
+import (
+	"net/url"
+	"strings"
+)
 
 // TrustedControlMessage adapts the fields actually supplied by Wails beta.16.
 // Windows WebView2 supplies both document URLs, not IsMainFrame. Linux supplies
@@ -14,7 +17,13 @@ func TrustedControlMessage(platform, window, origin, topOrigin string, mainFrame
 	case "darwin":
 		return mainFrame
 	case "windows":
-		return topOrigin == origin && TrustedControlOrigin(window, topOrigin, true)
+		// WebView2 captures the message URL and current top URL at different
+		// instants. SPA hash changes do not change the document or its authority.
+		// Ignore ONLY fragments; retain exact scheme/host/path/query matching and
+		// independently validate both URLs. The page CSP still forbids frames.
+		sourceDocument, _, _ := strings.Cut(origin, "#")
+		topDocument, _, _ := strings.Cut(topOrigin, "#")
+		return sourceDocument == topDocument && TrustedControlOrigin(window, topOrigin, true)
 	case "linux":
 		return true // Wails reads the top WebView URI; frame-src 'none' is required.
 	default:

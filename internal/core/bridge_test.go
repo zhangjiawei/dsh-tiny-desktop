@@ -10,6 +10,24 @@ func TestWindowsControlStatusMessage(t *testing.T) {
 	}
 }
 
+func TestWindowsHashNavigationInFlight(t *testing.T) {
+	// WebMessageReceived.Source is a message-time URL; GetSource is queried
+	// later by Wails. A same-document hash navigation can happen between them.
+	for _, urls := range [][2]string{
+		{"http://wails.localhost/", "http://wails.localhost/#settings"},
+		{"http://wails.localhost/#settings", "http://wails.localhost/#overview"},
+	} {
+		if !TrustedControlMessage("windows", "control", urls[0], urls[1], false) {
+			t.Fatal("same-document navigation dropped a privileged settings request")
+		}
+	}
+	for _, top := range []string{"http://wails.localhost/index.html#settings", "wails://localhost/#settings", "http://wails.localhost/?x=1#settings", "https://evil.test/#settings"} {
+		if TrustedControlMessage("windows", "control", "http://wails.localhost/#settings", top, false) {
+			t.Fatal("hash normalisation admitted a different document", top)
+		}
+	}
+}
+
 func TestPlatformControlBoundary(t *testing.T) {
 	for _, platform := range []string{"darwin", "windows", "linux"} {
 		origin := "wails://localhost/#settings"

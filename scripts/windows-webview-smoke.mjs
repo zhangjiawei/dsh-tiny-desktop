@@ -48,6 +48,10 @@ async function until(fn, label, timeout=30000) {
     if (result) return result;
     await pause(250);
   }
+  if (ws?.readyState===WebSocket.OPEN) {
+    // Keep failure evidence narrow: never dump logs, launch URLs or QR content.
+    try {console.error('QA timeout state',await evaluate(`({phase:document.querySelector('#phase')?.textContent,route:location.hash,notice:document.querySelector('#notice')?.textContent,invalid:[...document.querySelectorAll('#settings-form :invalid')].map(e=>e.id)})`));} catch {}
+  }
   throw Error(`timeout: ${label}`);
 }
 let ws, seq=0;
@@ -96,6 +100,14 @@ try {
   assert.equal(defaults.registry,'https://registry.npmmirror.com');
   await evaluate(`document.querySelector('#settings-form').requestSubmit()`);
   await until(async()=>JSON.parse(await readFile(settingsPath,'utf8')).registry===defaults.registry,'default mirror saved');
+  // Stress the actual asynchronous WebView2 message boundary. A request sent
+  // immediately before another hash change must still reach the same document.
+  for (let n=0;n<6;n++) {
+    const port=n%2 ? 3080 : 3081;
+    await evaluate(`location.hash='#settings';document.querySelector('#port-input').value='${port}';document.querySelector('#settings-form').requestSubmit();location.hash='#overview'`);
+    await until(async()=>JSON.parse(await readFile(settingsPath,'utf8')).port===port,'save during hash navigation');
+  }
+  console.log('PASS: six consecutive saves across in-flight hash navigation');
   await evaluate(`location.hash='#overview'`);
   console.log("PASS: native WebView2 idle status, empty logs and independent data directory rendered");
   await evaluate(`document.querySelector('#start').click()`);
