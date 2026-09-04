@@ -8,7 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestCommandArgumentsAndManagedBoundary(t *testing.T) {
@@ -38,7 +41,7 @@ func TestSettingsV1UpgradeAndLiveAppearance(t *testing.T) {
 	p, _ := NewPaths(t.TempDir())
 	AtomicWrite(filepath.Join(p.Root, "settings.json"), []byte(`{"port":3080,"language":"en","width":1280,"height":840}`), 0600)
 	s, e := p.LoadSettings()
-	if e != nil || s.PluginPolicy != "pinned" || s.StartupMinutes != 60 {
+	if e != nil || s.StartupMinutes != 60 {
 		t.Fatalf("migration: %+v %v", s, e)
 	}
 	m := NewManager(p, s)
@@ -66,7 +69,6 @@ func TestLatestPluginsResolveAndReceiptFreezesVersions(t *testing.T) {
 	defer func() { http.DefaultTransport = previous }()
 	p, _ := NewPaths(t.TempDir())
 	s := Defaults()
-	s.PluginPolicy = "latest"
 	s.Registry = server.URL
 	i := Installer{p, s, &Log{}}
 	selected, e := i.resolvePlugins(context.Background())
@@ -84,5 +86,46 @@ func TestLatestPluginsResolveAndReceiptFreezesVersions(t *testing.T) {
 	stored, e := i.readReceipt()
 	if e != nil || !reflect.DeepEqual(stored.Plugins, selected) {
 		t.Fatalf("receipt: %+v %v", stored, e)
+	}
+}
+
+func TestExistingInstallReusesReceiptWithoutRegistryAccess(t *testing.T) {
+	// With no system Node and an unreachable registry, this can only pass if a
+	// legacy install is reused without attempting a latest-version lookup.
+	t.Setenv("PATH", "")
+	p, _ := NewPaths(t.TempDir())
+	s := Defaults()
+	s.Registry = "https://127.0.0.1:1"
+	asset, err := assetFor(runtime.GOOS + "/" + runtime.GOARCH)
+	if err != nil {
+		t.Fatal(err)
+	}
+	folder := strings.TrimSuffix(strings.TrimSuffix(filepath.Base(asset.URL), ".tar.gz"), ".zip")
+	node := filepath.Join(p.Runtime, folder, "bin", exeName("node"))
+	if runtime.GOOS == "windows" {
+		node = filepath.Join(p.Runtime, folder, "node.exe")
+	}
+	cli := filepath.Join(p.Runtime, "dsh/node_modules/@deepseek-ai/dsh/lib/bin.js")
+	for _, path := range []string{node, cli} {
+		if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err = os.WriteFile(path, nil, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	plugins := append([]Plugin(nil), Plugins...)
+	for n := range plugins {
+		plugins[n].Version = "1.2.3"
+	}
+	b, _ := json.Marshal(installReceipt{DSHVersion, PnpmVersion, plugins, "pinned", s.Registry})
+	if err = os.WriteFile(filepath.Join(p.Runtime, "receipt.json"), b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	i := Installer{p, s, &Log{}}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if _, err = i.Ensure(ctx); err != nil {
+		t.Fatal(err)
 	}
 }

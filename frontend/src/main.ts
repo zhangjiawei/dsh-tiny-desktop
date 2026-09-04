@@ -15,7 +15,6 @@ type Settings = {
   alwaysOnTop: boolean;
   language: string;
   command: string;
-  pluginPolicy: string;
   registry: string;
   startupMinutes: number;
   width: number;
@@ -99,6 +98,8 @@ function render(s: State) {
     .join("\n");
   const active = ["installing", "starting", "running"].includes(s.phase);
   ($("start") as HTMLButtonElement).disabled = active;
+  $("start").hidden = active;
+  $("open").classList.toggle("primary", s.phase === "running");
   ($("stop") as HTMLButtonElement).disabled = !active;
   for (const id of ["open", "browser", "copy", "share"])
     $<HTMLButtonElement>(id).disabled = s.phase !== "running";
@@ -113,7 +114,6 @@ function render(s: State) {
     $<HTMLInputElement>("tray-only").checked = s.settings.trayOnly;
     $<HTMLSelectElement>("language").value = s.settings.language;
     $<HTMLInputElement>("command").value = s.settings.command;
-    $<HTMLSelectElement>("plugin-policy").value = s.settings.pluginPolicy;
     $<HTMLInputElement>("registry").value = s.settings.registry;
     $<HTMLInputElement>("startup-minutes").value = String(
       s.settings.startupMinutes,
@@ -128,6 +128,8 @@ function route() {
     section.hidden = section.id !== id;
   for (const a of document.querySelectorAll("nav a"))
     a.classList.toggle("active", a.getAttribute("href") === "#" + id);
+  // Reset the content pane after native anchor scrolling, not the sidebar.
+  requestAnimationFrame(() => document.querySelector("main")?.scrollTo(0, 0));
 }
 window.addEventListener("hashchange", route);
 route();
@@ -164,7 +166,7 @@ action("share", async () => {
   await QRCode.toCanvas($("qr"), url, {
     width: 250,
     margin: 2,
-    color: { dark: "#172b2a", light: "#fffef8" },
+    color: { dark: "#202322", light: "#ffffff" },
   });
   $<HTMLDialogElement>("share-dialog").showModal();
 });
@@ -185,7 +187,6 @@ function settingsValues(): Settings {
     trayOnly: $<HTMLInputElement>("tray-only").checked,
     language: $<HTMLSelectElement>("language").value,
     command: $<HTMLInputElement>("command").value.trim(),
-    pluginPolicy: $<HTMLSelectElement>("plugin-policy").value,
     registry: $<HTMLInputElement>("registry").value.trim().replace(/\/$/, ""),
     startupMinutes: Number($<HTMLInputElement>("startup-minutes").value),
   };

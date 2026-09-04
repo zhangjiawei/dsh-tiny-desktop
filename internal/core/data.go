@@ -142,7 +142,7 @@ func (m *Manager) Import(source string, credentials bool) (string, error) {
 		os.Rename(backup, m.paths.Data)
 		return "", err
 	}
-	// Invalidate the installation receipt: the next start recreates the pinned
+	// Invalidate the installation receipt: the next start creates a new isolated
 	// web profile in the imported data, without importing foreign executable code.
 	_ = os.Remove(filepath.Join(m.paths.Runtime, "receipt.json"))
 	m.log.Add("数据已导入，原数据备份在 " + backup)

@@ -138,7 +138,9 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	r.CLI = filepath.Join(i.Paths.Runtime, "dsh/node_modules/@deepseek-ai/dsh/lib/bin.js")
 	receipt := filepath.Join(i.Paths.Runtime, "receipt.json")
 	previous, receiptErr := i.readReceipt()
-	if receiptErr == nil && previous.DSH == DSHVersion && previous.PNPM == PnpmVersion && previous.Policy == i.Settings.PluginPolicy && previous.Registry == i.Settings.Registry {
+	// Preserve legacy pinned receipts too: ordinary launches must not silently
+	// upgrade plugins that are already installed in an existing user's profile.
+	if receiptErr == nil && previous.DSH == DSHVersion && previous.PNPM == PnpmVersion && previous.Registry == i.Settings.Registry {
 		if _, e := os.Stat(r.CLI); e == nil {
 			return r, nil
 		}
@@ -147,7 +149,7 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	if err != nil {
 		return r, err
 	}
-	expected, _ := json.Marshal(installReceipt{DSHVersion, PnpmVersion, selected, i.Settings.PluginPolicy, i.Settings.Registry})
+	expected, _ := json.Marshal(installReceipt{DSHVersion, PnpmVersion, selected, "latest", i.Settings.Registry})
 	registryArg := "--registry=" + i.Settings.Registry
 	if err = os.MkdirAll(toolsDir, 0700); err != nil {
 		return r, err

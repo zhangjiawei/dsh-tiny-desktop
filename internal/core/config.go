@@ -23,12 +23,12 @@ type Plugin struct {
 }
 
 var Plugins = []Plugin{
-	{"@michengai/dsh-codex-ui", "0.2.103"},
-	{"@michengai/dsh-im-connect", "0.1.34"},
-	{"@michengai/dsh-automation", "0.1.29"},
-	{"dshmarket", "1.41.0"},
-	{"task-complete-notify-for-dsh", "0.2.0"},
-	{"dsh-better-sidebar", "0.18.0"},
+	{Name: "@michengai/dsh-codex-ui"},
+	{Name: "@michengai/dsh-im-connect"},
+	{Name: "@michengai/dsh-automation"},
+	{Name: "dshmarket"},
+	{Name: "task-complete-notify-for-dsh"},
+	{Name: "dsh-better-sidebar"},
 }
 
 type Settings struct {
@@ -41,7 +41,6 @@ type Settings struct {
 	AlwaysOnTop    bool   `json:"alwaysOnTop"`
 	Language       string `json:"language"`
 	Command        string `json:"command"`
-	PluginPolicy   string `json:"pluginPolicy"`
 	Registry       string `json:"registry"`
 	StartupMinutes int    `json:"startupMinutes"`
 	Width          int    `json:"width"`
@@ -49,7 +48,7 @@ type Settings struct {
 }
 
 func Defaults() Settings {
-	return Settings{Port: 3080, HideOnClose: true, AutoStart: true, Language: "system", PluginPolicy: "pinned", Registry: "https://registry.npmjs.org", StartupMinutes: 60, Width: 1280, Height: 840}
+	return Settings{Port: 3080, HideOnClose: true, AutoStart: true, Language: "system", Registry: "https://registry.npmjs.org", StartupMinutes: 60, Width: 1280, Height: 840}
 }
 func (s Settings) Validate() error {
 	if s.Port < 1024 || s.Port > 65535 {
@@ -60,9 +59,6 @@ func (s Settings) Validate() error {
 	}
 	if s.Language != "system" && s.Language != "zh" && s.Language != "en" {
 		return errors.New("不支持的语言")
-	}
-	if s.PluginPolicy != "pinned" && s.PluginPolicy != "latest" {
-		return errors.New("插件策略必须为 pinned 或 latest")
 	}
 	u, err := url.Parse(s.Registry)
 	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
@@ -122,7 +118,7 @@ func (p Paths) LoadSettings() (Settings, error) {
 	_ = json.Unmarshal(b, &fields)
 	// v0.1 had a hardcoded Chinese default but no language chooser. Upgrade that
 	// implicit default to system; retain an explicitly configured English value.
-	if _, v2 := fields["pluginPolicy"]; !v2 && s.Language == "zh" {
+	if _, v2 := fields["startupMinutes"]; !v2 && s.Language == "zh" {
 		s.Language = "system"
 	}
 	return s, s.Validate()

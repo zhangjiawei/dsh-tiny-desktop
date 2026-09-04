@@ -16,7 +16,7 @@ An independent, lightweight desktop home for [DeepSeek Harness](https://github.c
 
 ### v0.2 桌面设置
 
-- **托盘模式**：开启“最小化或关闭时从 Dock / 任务栏隐藏”后，最小化或点 × 会隐藏本应用所有窗口，只保留菜单栏/托盘图标，DSH 继续运行。单击图标恢复并置前，右键打开菜单。关闭此开关则保留普通 Dock/任务栏行为。Linux 桌面需支持系统托盘；也可再次启动应用恢复控制中心。
+- **托盘模式**：开启“仅驻留托盘”后，最小化或点 × 会隐藏本应用所有窗口，只保留菜单栏/托盘图标，DSH 继续运行。单击图标恢复并置前，右键打开菜单。关闭此开关则保留普通 Dock/任务栏行为。Linux 桌面需支持系统托盘；也可再次启动应用恢复控制中心。菜单栏管理工具可能隐藏图标，请在对应工具中显示它。
 - **语言**：默认跟随操作系统的 UI 语言，支持简体中文、English；其他语言回退 English。选择后立即生效，原生菜单同步更新，不重启 DSH。这里只控制外壳，DSH 工作空间保持自己的语言设置。
 - **运行配置**：语言、置顶、隐藏策略即时生效；启动命令、仓库、端口等在停止服务后保存，或使用“应用并重启”。无效输入会先被校验，不会先停掉正常会话。
 - **启动命令**：留空使用托管 DSH；可以填写 `pnpm dlx … web` 或显式程序及参数。支持引号，不执行 Shell 管道、变量替换或重定向。端口、`--no-open`、LAN trusted host 由外壳追加，不能自行覆盖监听地址或关闭认证。自定义版本的兼容性由所选 DSH/插件决定。
@@ -29,7 +29,7 @@ pnpm --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=node-pty --al
 
 可添加 `--config.registry=https://registry.npmmirror.com`，或设置统一 HTTPS 仓库。pnpm 由本应用私有 Node 启动，dlx 缓存放在 `runtime/pnpm-cache`；不要求全局安装 pnpm。启动等待可设 1–120 分钟，默认 60 分钟，适应 dlx 首次下载。
 
-**插件最新版**：在安装策略中选择“安装时解析最新版”，应用并重启。六个插件会从所选仓库解析 `latest` 并记录具体版本到 `runtime/receipt.json`；普通重启复用记录，不会每天自动换版本。此策略与自定义命令里指定的 DSH 版本是两回事。默认仍使用下面已验证的固定版本。
+**首次安装即最新版**：全新数据目录首次启动时，自动从仓库解析六个预置插件的 `latest` 并安装，不需要设置开关。实际版本记录到 `runtime/receipt.json`，普通重启和升级外壳会复用已有安装，不会静默升级插件。首次安装需要联网；解析失败会显示错误，重试即可，不会悄悄回退到写死的旧版本。自定义命令中的 DSH 版本与这六个插件版本是两回事。
 
 浏览器必须完成 DSH 官方认证。用“在浏览器中打开”或“复制认证链接”完成首次登录；不需要从日志里找 token。**链接是完整访问凭证，请勿公开分享。** 默认只允许同一台电脑访问。设置中可显式开启局域网分享，二维码改用私有 IPv4 地址，仍由 DSH 校验认证与 Host。HTTP 局域网流量未加密，不要用于公共 Wi-Fi、公网或不可信网络；操作系统防火墙/本地网络权限可能需要用户授权。
 
@@ -47,16 +47,16 @@ pnpm --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=node-pty --al
 
 导入前先退出源 DSH，再停止本应用服务。控制中心选择原 `~/.dsh`，预览文件数量/大小，按需勾选凭据。仅导入会话、附件、技能、设置、agent presets 和 task-board；不导入执行代码、profiles、缓存、锁。目标数据会保留为 `backup-*`，导入后可恢复。原目录只读。
 
-## 固定默认插件
+## 六个预置插件
 
-| 插件 | 版本 |
+| 插件 | 首次安装 |
 |---|---|
-| @michengai/dsh-codex-ui | 0.2.103 |
-| @michengai/dsh-im-connect | 0.1.34 |
-| @michengai/dsh-automation | 0.1.29 |
-| dshmarket | 1.41.0 |
-| task-complete-notify-for-dsh | 0.2.0 |
-| dsh-better-sidebar | 0.18.0 |
+| @michengai/dsh-codex-ui | 自动解析 latest |
+| @michengai/dsh-im-connect | 自动解析 latest |
+| @michengai/dsh-automation | 自动解析 latest |
+| dshmarket | 自动解析 latest |
+| task-complete-notify-for-dsh | 自动解析 latest |
+| dsh-better-sidebar | 自动解析 latest |
 
 DSH **0.1.2-rc.1**，pnpm **10.28.0**，Wails **v3.0.0-beta.16**。首次初始化通过官方 `dsh plugin --profile web` 安装并注册；关闭 peer 自动安装，由宿主提供 DSH API；原生构建仅允许列出的依赖。插件是独立第三方代码，有自己的许可证与网络/通知行为。
 

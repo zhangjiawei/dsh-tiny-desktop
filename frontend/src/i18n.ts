@@ -1,6 +1,61 @@
 // Keep translation at the shell boundary. Never rewrite or inject the DSH DOM.
 export let language = "en";
 const en: Record<string, string> = {
+  控制中心: "Control Center",
+  "本地运行 · 数据独立": "Local · Isolated data",
+  "管理你的本地 DSH 工作空间。": "Manage your local DSH workspace.",
+  "首次运行自动安装独立环境与 6 个最新版插件，不影响原有 DshShell。":
+    "First launch installs an isolated runtime and the latest six plugins. Your existing DshShell is untouched.",
+  快捷操作: "Quick actions",
+  预置插件: "Included plugins",
+  "6 个插件": "6 plugins",
+  编码工作台: "Coding workspace",
+  即时通讯: "Messaging",
+  自动化任务: "Scheduled tasks",
+  插件市场: "Plugin marketplace",
+  桌面提醒: "Desktop alerts",
+  侧栏增强: "Sidebar enhancements",
+  "首次安装自动获取最新版，之后重启保持已安装版本。":
+    "Latest versions on first install. Subsequent launches keep installed versions.",
+  "外观立即生效，启动配置应用并重启后生效。":
+    "Appearance applies immediately. Apply and restart for launch settings.",
+  外观与窗口: "Appearance & windows",
+  "跟随系统或手动选择，仅影响桌面外壳。":
+    "Follow your system or choose a language for the desktop shell.",
+  仅驻留托盘: "Tray-only mode",
+  "最小化或关闭时隐藏 Dock / 任务栏图标，点击托盘恢复。":
+    "Hide from Dock / taskbar when minimized or closed. Click the tray to restore.",
+  关闭窗口后继续运行: "Keep running after closing",
+  "关闭工作空间窗口时不停止 DSH 服务。":
+    "Closing the workspace window keeps DSH running.",
+  工作空间置顶: "Always on top",
+  "DSH 窗口始终显示在其他窗口上方。":
+    "Keep the DSH workspace above other windows.",
+  启动与网络: "Launch & network",
+  "自动启动 DSH": "Start DSH automatically",
+  "打开应用时自动准备并启动工作空间。":
+    "Prepare and start the workspace when the app opens.",
+  留空使用内置托管启动: "Leave blank for the managed runtime",
+  "支持带引号的参数，不执行 Shell 管道或变量。端口与认证由外壳管理。":
+    "Quoted arguments are supported, not shell pipes or variables. The app manages the port and authentication.",
+  "端口占用时自动避让。": "Automatically avoid occupied ports.",
+  "允许 1–120 分钟准备依赖。": "Allow 1–120 minutes to prepare dependencies.",
+  "支持 HTTPS 镜像，用于运行环境和插件安装。":
+    "HTTPS registry for runtime and plugin installation.",
+  "仅影响本应用，不修改系统代理。":
+    "Applies only to this app, not the system proxy.",
+  局域网分享: "LAN sharing",
+  "仅限可信私有网络。链接具有完整权限，HTTP 未加密。":
+    "Trusted private networks only. Links grant full access; HTTP is unencrypted.",
+  "已有工作空间的插件不会随重启自动升级。":
+    "Existing workspace plugins never update silently on restart.",
+  "从原 DSH 复制数据，保留原目录和现有备份。":
+    "Copy from an existing DSH installation, preserving the source and backups.",
+  当前数据空间: "Current data space",
+  "请先退出原 DSH，确保导入时源数据不再变化。":
+    "Exit the original DSH before importing so the source data stays unchanged.",
+  "最近 500 行输出，认证链接和常见敏感字段自动脱敏。":
+    "Last 500 log lines. Authenticated links and common secrets are redacted.",
   "填入 pnpm dlx 示例": "Use pnpm dlx example",
   "示例仅允许 DSH subprocess、node-pty、koffi 的必要安装脚本；不要使用全部放行选项。":
     "The example allows only the required DSH subprocess, node-pty and koffi scripts. Never approve all dependency scripts.",
@@ -41,11 +96,6 @@ const en: Record<string, string> = {
   自定义启动命令: "Custom launch command",
   "留空使用内置托管启动。支持带引号的参数，不支持 Shell 管道或变量。端口、--no-open 和认证由外壳管理。":
     "Leave blank for the managed runtime. Quoted arguments are supported, not shell pipes or variables. The shell manages the port, --no-open and authentication.",
-  插件安装策略: "Plugin installation policy",
-  "已验证的固定版本（推荐）": "Verified pinned versions (recommended)",
-  安装时解析最新版: "Resolve latest versions when installing",
-  "最新版会记录具体版本，普通重启不自动升级。切换策略后应用并重启。":
-    "Resolved versions are recorded; normal restarts never silently upgrade. Apply and restart after changing the policy.",
   "npm / pnpm 仓库": "npm / pnpm registry",
   "用于运行环境包和插件安装，可配置 HTTPS 镜像；自定义命令中的仓库参数优先。":
     "HTTPS registry for runtime packages and plugins. Registry arguments in a custom command take precedence.",
@@ -146,4 +196,7 @@ export function setLanguage(choice: string, system: string) {
     if (en[original]) node.textContent = t(original);
   }
   document.getElementById("close-share")?.setAttribute("aria-label", t("关闭"));
+  document
+    .getElementById("command")
+    ?.setAttribute("placeholder", t("留空使用内置托管启动"));
 }

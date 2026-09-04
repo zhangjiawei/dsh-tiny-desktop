@@ -39,6 +39,7 @@ func clickElement(_ e: AXUIElement) -> Bool {
   else { return false }
   point.x += dimensions.width / 2
   point.y += dimensions.height / 2
+  guard CGDisplayBounds(CGMainDisplayID()).contains(point) else { return false }
   CGEvent(
     mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: point, mouseButton: .left
   )?.post(tap: .cghidEventTap)
@@ -47,6 +48,15 @@ func clickElement(_ e: AXUIElement) -> Bool {
     .post(tap: .cghidEventTap)
   RunLoop.current.run(until: Date().addingTimeInterval(1))
   return true
+}
+func pressTray(_ item: AXUIElement) -> Bool {
+  // Menu bar managers may move a live status item off-screen. AXPress still
+  // exercises its native click callback; an off-screen mouse click does not.
+  if AXUIElementPerformAction(item, kAXPressAction as CFString) == .success {
+    RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+    return true
+  }
+  return clickElement(item)
 }
 let app = AXUIElementCreateApplication(pid)
 let windows = attr(app, "AXWindows") as? [AXUIElement] ?? []
@@ -91,7 +101,7 @@ if action == "tray-cycle" {
     AXUIElementSetAttributeValue(control, "AXMinimized" as CFString, kCFBooleanTrue) == .success,
     "minimize rejected")
   waitFor(true)
-  expect(clickElement(item), "tray click unavailable")
+  expect(pressTray(item), "tray click unavailable")
   waitFor(false)
   let restored = attr(app, "AXWindows") as? [AXUIElement] ?? []
   guard let workspace = restored.first(where: { title($0) == "DSH Tiny" }),
@@ -104,7 +114,7 @@ if action == "tray-cycle" {
     AXUIElementPerformAction(close as! AXUIElement, kAXPressAction as CFString) == .success,
     "close rejected")
   waitFor(true)
-  expect(clickElement(item), "second tray click unavailable")
+  expect(pressTray(item), "second tray click unavailable")
   waitFor(false)
   print("PASS: minimize → tray-only → restore → close → tray-only → restore (same app process)")
   exit(0)
@@ -173,7 +183,7 @@ if action == "tray" {
       (attr($0, "AXRole") as? String) == "AXMenuBarItem"
     })
   else { exit(1) }
-  print("TRAY CLICK", clickElement(item))
+  print("TRAY CLICK", pressTray(item))
   exit(0)
 }
 guard let control else {

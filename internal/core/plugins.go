@@ -50,9 +50,8 @@ func (i *Installer) readReceipt() (installReceipt, error) {
 }
 func (i *Installer) resolvePlugins(ctx context.Context) ([]Plugin, error) {
 	selected := append([]Plugin(nil), Plugins...)
-	if i.Settings.PluginPolicy != "latest" {
-		return selected, nil
-	}
+	// First installation resolves all six latest tags automatically. It is not
+	// a preference users must discover and enable in Settings.
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if i.Settings.Proxy != "" {
 		u, _ := url.Parse(i.Settings.Proxy)
