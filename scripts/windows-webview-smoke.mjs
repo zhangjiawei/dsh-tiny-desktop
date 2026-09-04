@@ -1,6 +1,7 @@
-// Exercise the packaged executable and actual WebView2, not a mocked bridge.
-// Debugging is enabled only in this disposable CI child. Never enable CDP in
-// normal release launches or point this script at a user's data directory.
+// First check the exact packaged exe using native UI Automation. Then exercise
+// the same source in a QA-only instrumented WebView2 build (not a mock bridge).
+// Wails deliberately clears SDK debugging environment variables; published
+// binaries therefore never expose a CDP port. Temporary CI profiles only.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
@@ -8,8 +9,8 @@ import { resolve, join } from "node:path";
 import { createServer } from "node:net";
 
 assert.equal(process.platform, "win32", "requires native Windows WebView2");
-const [binaryArg, rootArg] = process.argv.slice(2);
-assert.ok(binaryArg && rootArg, "requires packaged executable and disposable smoke root");
+const [binaryArg, rootArg, qaBinaryArg] = process.argv.slice(2);
+assert.ok(binaryArg && rootArg && qaBinaryArg, "requires published exe, disposable smoke root and QA exe");
 const root = resolve(rootArg);
 assert.ok(process.env.RUNNER_TEMP && root.startsWith(resolve(process.env.RUNNER_TEMP) + "\\"), "CI temporary roots only");
 const settingsPath = join(root, "settings.json");
@@ -20,11 +21,21 @@ const settings = {port:3080, proxy:"", lan:false, hideOnClose:true, trayOnly:tru
   startupMinutes:60, width:1280, height:840};
 await writeFile(settingsPath, JSON.stringify(settings));
 const listener = createServer();
-await new Promise(r => listener.listen(0, "127.0.0.1", r));
-const debugPort = listener.address().port;
+const debugPort = 49223; // Must match the CI-only linker flag; fail on collision.
+await new Promise((r,j) => {listener.once('error',j);listener.listen(debugPort, "127.0.0.1", r);});
 await new Promise(r => listener.close(r));
-const child = spawn(resolve(binaryArg), [], {env:{...process.env, DSH_TINY_HOME:root,
-  WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${debugPort} --remote-debugging-address=127.0.0.1`}, stdio:"ignore"});
+const releaseChild = spawn(resolve(binaryArg), [], {env:{...process.env,DSH_TINY_HOME:root},stdio:"ignore"});
+try {
+  const code = await new Promise((r,j)=>{
+    releaseChild.once('error',j);
+    const probe=spawn('pwsh',['-NoProfile','-File','scripts/windows-control-ready.ps1','-AppProcessId',String(releaseChild.pid)],{stdio:'inherit'});
+    probe.once('error',j);probe.once('exit',r);
+  });
+  assert.equal(code,0,'packaged native control status failed');
+} finally {
+  if(releaseChild.pid) await new Promise(r=>spawn('taskkill',['/PID',String(releaseChild.pid),'/T','/F'],{stdio:'ignore'}).on('exit',r));
+}
+const child = spawn(resolve(qaBinaryArg), [], {env:{...process.env, DSH_TINY_HOME:root}, stdio:"ignore"});
 let spawnError;
 child.on("error", e => {spawnError = e;});
 const pause = ms => new Promise(r => setTimeout(r, ms));

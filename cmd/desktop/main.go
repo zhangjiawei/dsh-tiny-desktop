@@ -22,6 +22,11 @@ var version = "0.2.1"
 // QA builds may override this via -ldflags to test in an isolated app instance.
 var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
 
+// Set only by the CI link step for an instrumented QA executable. Published
+// binaries leave this empty; neither environment variables nor app settings
+// can turn on a debugging port in a normal release.
+var webviewDebugPort = ""
+
 func main() {
 	p, err := core.NewPaths(os.Getenv("DSH_TINY_HOME"))
 	if err != nil {
@@ -69,6 +74,7 @@ func main() {
 		}
 	}
 	app = application.New(application.Options{Name: "DSH Tiny", Description: "An independent desktop home for DeepSeek Harness", Assets: application.AssetOptions{Handler: http.FileServer(http.FS(assets))},
+		Windows:       desktopWindowsOptions(),
 		SingleInstance: &application.SingleInstanceOptions{UniqueID: instanceID, OnSecondInstanceLaunch: func(application.SecondInstanceData) { showControl() }},
 		Mac:            application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: false},
 		RawMessageHandler: func(w application.Window, message string, origin *application.OriginInfo) {
