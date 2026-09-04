@@ -28,7 +28,9 @@
 
 两个 Linux runner 额外通过真实私有 IPv4 地址的 DSH token→Cookie 认证。修复并回归了 Windows `/absolute` 归档路径判定，以及一次性 ConPTY 验证器退出后事件循环被后台句柄保留的问题。测试不再仅根据原生依赖文件存在判定终端可用。
 
-Release 工作流会针对发布 tag 重新执行全部测试与打包，六项成功后才发布压缩包和 SHA256SUMS.txt。
+[v0.1.0 发布工作流](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33873119411) 已在 tag `v0.1.0`（`5af9531`）上再次通过全部六平台测试及打包，`release` job 成功。公开 [Release](https://github.com/zhangjiawei/dsh-tiny-desktop/releases/tag/v0.1.0) 包含六个压缩包及 SHA256SUMS.txt，标记为预发布、非草稿。
+
+发布后从公开下载地址重新下载全部六个安装包：`shasum -a 256 -c SHA256SUMS.txt` 全部 OK。解压后 `file` 确认 Mach-O x86_64/arm64、PE GUI x86-64/Aarch64、ELF x86-64/aarch64 与资产名称一致。两个 macOS `.app` 均通过 `codesign --verify --deep --strict`；这仅验证 ad-hoc 完整性，不代表 Apple 公证。
 
 ## 尚未覆盖 / 限制
 

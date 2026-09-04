@@ -17,7 +17,7 @@ Wails v3 / Go / TypeScript；公开仓库 zhangjiawei/dsh-tiny-desktop；独立�
 - [x] 独立数据目录、导入预览/备份/恢复、更新入口
 - [x] 六插件真实装配与冷启动验证
 - [x] 测试/构建 CI 与公开仓库（六平台原生测试及打包通过）
-- [ ] 发布 tag 再验证并生成 Release 资产
+- [x] 发布 v0.1.0 tag，六平台再次验证并生成 Release 资产及 SHA256SUMS.txt
 
 ## 安全约束
 
