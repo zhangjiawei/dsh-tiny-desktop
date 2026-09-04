@@ -118,7 +118,13 @@ func (m *Manager) run(ctx context.Context, s Settings, done chan struct{}) {
 		return
 	}
 	for attempt := 0; attempt < 3; attempt++ {
-		port, err := CandidatePort(s.Port)
+		// After a bind race (including a LAN-only collision), do not keep trying
+		// the preferred port just because its loopback interface still looks free.
+		preferred := s.Port
+		if attempt > 0 {
+			preferred = 0
+		}
+		port, err := CandidatePort(preferred)
 		if err != nil {
 			failure = err
 			return

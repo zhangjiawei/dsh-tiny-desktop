@@ -7,4 +7,10 @@ const pty=req('./lib/index.js');
 const child=pty.spawn(process.execPath,['-e','process.stdout.write("TINY_PTY_OK")'],{name:'xterm',cols:80,rows:24,cwd:process.cwd(),env:process.env});
 let output='';const timer=setTimeout(()=>{child.kill();process.exit(1)},15000);
 child.onData(data=>output+=data);
-child.onExit(({exitCode})=>{clearTimeout(timer);if(exitCode!==0||!output.includes('TINY_PTY_OK'))process.exit(1);console.log('PASS: native PTY spawn and exit')});
+child.onExit(({exitCode})=>{
+  clearTimeout(timer);
+  if(exitCode!==0||!output.includes('TINY_PTY_OK')){console.error('PTY check failed',{exitCode,receivedMarker:output.includes('TINY_PTY_OK')});process.exit(1)}
+  // ConPTY's worker handles can keep Node's event loop alive even after the
+  // terminal exited. This disposable verifier has finished; flush then exit.
+  process.stdout.write('PASS: native PTY spawn and exit\n',()=>process.exit(0));
+});

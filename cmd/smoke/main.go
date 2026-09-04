@@ -57,6 +57,9 @@ func main() {
 					}
 				}
 				cancel()
+				for _, line := range m.Snapshot().Logs[last:] {
+					fmt.Println(line.Time, line.Text)
+				}
 				m.Stop()
 				if err != nil {
 					fmt.Fprintln(os.Stderr, core.Redact(err.Error()))
