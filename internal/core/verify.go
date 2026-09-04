@@ -18,6 +18,9 @@ var verifyRuntimeScript string
 func (m *Manager) VerifyInstallation(ctx context.Context) error {
 	m.mu.Lock()
 	s := m.settings
+	if m.cancel != nil {
+		s = m.activeSettings
+	}
 	m.mu.Unlock()
 	i := Installer{m.paths, s, &m.log}
 	r, err := i.Ensure(ctx)

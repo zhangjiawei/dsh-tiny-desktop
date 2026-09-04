@@ -28,12 +28,14 @@ type State = {
   logs: { time: string; text: string }[];
   settings: Settings;
   systemLanguage: string;
+  restartRequired: boolean;
+  lanActive: boolean;
 };
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 const pending = new Map<
   number,
-  { resolve: (v: any) => void; reject: (e: Error) => void }
+  { resolve: (v: any) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }
 >();
 let seq = 0;
 let state: State | undefined;
@@ -44,17 +46,24 @@ let first = true;
   const p = pending.get(id);
   if (!p) return;
   pending.delete(id);
+  clearTimeout(p.timer);
   error ? p.reject(new Error(error)) : p.resolve(value);
 };
 function call(action: string, data: unknown = {}): Promise<any> {
   return new Promise((resolve, reject) => {
     const id = ++seq;
-    pending.set(id, { resolve, reject });
-    System.invoke(JSON.stringify({ id, action, data }));
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       if (pending.delete(id))
-        reject(new Error(t("操作仍在处理中，请查看日志")));
-    }, 120000);
+        reject(new Error(t(action === "status" ? "控制中心连接失败，正在重试。请退出并重新打开应用，仍失败请更新版本。" : "操作仍在处理中，请查看日志")));
+    }, action === "status" ? 8000 : 120000);
+    pending.set(id, { resolve, reject, timer });
+    try {
+      System.invoke(JSON.stringify({ id, action, data }));
+    } catch (error) {
+      clearTimeout(timer);
+      pending.delete(id);
+      reject(error);
+    }
   });
 }
 let noticeTimer: ReturnType<typeof setTimeout>;
@@ -93,6 +102,9 @@ function render(s: State) {
   );
   $("error").textContent = s.error;
   $("data-path").textContent = s.data;
+  $("settings-status").textContent = t(s.restartRequired
+    ? "已保存，启动参数有待应用。下次启动生效，或点击“应用并重启”。"
+    : "保存不会中断服务，启动参数在下次启动时生效。");
   $("log-output").textContent = s.logs
     .map((l) => `${l.time}  ${l.text}`)
     .join("\n");
@@ -154,7 +166,9 @@ action("updates", async () => {
 });
 action("share", async () => {
   const url = await call("share");
-  const lan = state?.settings.lan;
+  // A saved LAN toggle may still be pending restart. Describe the actual URL,
+  // never the desired configuration, so offline sharing is not mislabeled.
+  const lan = !["127.0.0.1", "localhost"].includes(new URL(url).hostname);
   $("share-title").textContent = t(
     lan ? "在可信局域网内继续。" : "同一台电脑，换个浏览器。",
   );
@@ -195,7 +209,10 @@ $("settings-form").onsubmit = (e) => {
   e.preventDefault();
   if (!state) return;
   call("configure", settingsValues())
-    .then(() => notice("设置已保存"))
+    .then((s: State) => {
+      render(s);
+      notice(s.restartRequired ? "设置已保存，下次启动生效；当前服务未中断。" : "设置已保存");
+    })
     .catch((e) => notice(e.message));
 };
 action("apply-restart", async () => {
@@ -255,7 +272,8 @@ async function poll() {
   try {
     render(await call("status"));
   } catch (e) {
-    notice((e as Error).message);
+    $("phase").textContent = t("连接失败");
+    $("error").textContent = (e as Error).message;
   } finally {
     setTimeout(poll, 1000);
   }

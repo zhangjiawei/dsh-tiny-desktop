@@ -17,7 +17,7 @@ import (
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
 )
 
-var version = "0.2.0"
+var version = "0.2.1"
 
 // QA builds may override this via -ldflags to test in an isolated app instance.
 var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
@@ -74,7 +74,7 @@ func main() {
 		RawMessageHandler: func(w application.Window, message string, origin *application.OriginInfo) {
 			// Window identity alone is insufficient: a trusted window could navigate to
 			// a hostile document. Require both the local origin and the top-level frame.
-			if origin == nil || !core.TrustedControlOrigin(w.Name(), origin.Origin, origin.IsMainFrame) {
+			if origin == nil || !core.TrustedControlMessage(runtime.GOOS, w.Name(), origin.Origin, origin.TopOrigin, origin.IsMainFrame) {
 				return
 			}
 			if len(message) > 16384 {
@@ -141,6 +141,7 @@ func main() {
 						}
 						if e == nil {
 							applyAppearance()
+							result = manager.Snapshot()
 						}
 					}
 				case "preview":

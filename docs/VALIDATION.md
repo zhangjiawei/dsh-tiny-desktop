@@ -1,5 +1,13 @@
 # 验证记录
 
+## v0.2.1 修复验证
+
+- 根因回放：使用 Wails beta.16 Windows `processMessage` 实際字段（Origin/TopOrigin，IsMainFrame=false）运行 `go test ./internal/core -run TestWindowsControlStatusMessage -count=1`，修复前失败，修复后通过。旧版六平台 DSH smoke 没有覆盖原生窗口桥，这是 v0.2.0 漏检原因。
+- 来源检查按平台适配；macOS 保留主 frame 校验，Windows 同时检查发送方与顶层控制 URL，Linux 配合 `frame-src 'none'` 的控制页 CSP。外部站点、非控制窗口、错误路径和缺失 Windows 顶层来源均拒绝。
+- `TestSaveWhileRunningNeverStopsService` 修复前得到“请先停止服务再修改设置”，修复后确认服务状态/端口不变、配置持久化、待重启标记、恢复原配置清除标记、无效保存不生效。
+- 新安装开关默认值及保留已有 false 选择的回归通过。`Log.Lines()` 空列表可序列化为 []，不是 Windows 空白页的根因。
+- 本地核心测试、race、模块完整性、前端测试、TypeScript 构建通过。发布工作流新增 `scripts/windows-webview-smoke.mjs`：以隔离目录运行打包后的 Windows exe，使用仅该测试进程开启的 WebView2 CDP，驱动真实界面而非模拟 bridge。实际 Windows 结果将在运行完成后补录。
+
 ## v0.2.0 本地验证（2026-09-04，macOS Intel）
 
 - `go test -race ./internal/core`、`go vet ./internal/core`、`go mod tidy -diff`、`npm test --prefix frontend`、TypeScript 检查和前端打包通过。

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'"
     />
     <title>DSH Tiny · 控制中心</title>
     <link rel="stylesheet" href="/style.css" />
@@ -37,7 +37,7 @@
       </nav>
       <footer>
         <span class="local-dot"></span><span>本地运行 · 数据独立</span
-        ><small>v0.2.0</small>
+        ><small>v0.2.1</small>
       </footer>
     </aside>
     <main>
@@ -200,7 +200,7 @@
             /></label>
           </div>
           <div class="form-footer">
-            <span>已有工作空间的插件不会随重启自动升级。</span>
+            <span id="settings-status" role="status">保存不会中断服务，启动参数在下次启动时生效。</span>
             <div class="actions">
               <button type="submit">保存设置</button
               ><button type="button" id="apply-restart" class="primary">

@@ -13,18 +13,21 @@ import (
 )
 
 type Snapshot struct {
-	Phase          string    `json:"phase"`
-	Error          string    `json:"error"`
-	Port           int       `json:"port"`
-	Data           string    `json:"data"`
-	Logs           []LogLine `json:"logs"`
-	Settings       Settings  `json:"settings"`
-	SystemLanguage string    `json:"systemLanguage"`
+	Phase           string    `json:"phase"`
+	Error           string    `json:"error"`
+	Port            int       `json:"port"`
+	Data            string    `json:"data"`
+	Logs            []LogLine `json:"logs"`
+	Settings        Settings  `json:"settings"`
+	SystemLanguage  string    `json:"systemLanguage"`
+	RestartRequired bool      `json:"restartRequired"`
+	LANActive       bool      `json:"lanActive"`
 }
 type Manager struct {
 	mu                       sync.Mutex
 	paths                    Paths
 	settings                 Settings
+	activeSettings           Settings // Immutable launch configuration for the current child.
 	log                      Log
 	phase, lastError, launch string
 	lanIP                    string
@@ -35,7 +38,7 @@ type Manager struct {
 }
 
 func NewManager(p Paths, s Settings) *Manager {
-	return &Manager{paths: p, settings: s, phase: "stopped", systemLanguage: SystemLanguage(), log: Log{path: filepath.Join(p.Logs, "runtime.log")}}
+	return &Manager{paths: p, settings: s, activeSettings: s, phase: "stopped", systemLanguage: SystemLanguage(), log: Log{path: filepath.Join(p.Logs, "runtime.log")}}
 }
 func (m *Manager) ReportError(err error) {
 	m.mu.Lock()
@@ -47,7 +50,17 @@ func (m *Manager) ReportError(err error) {
 func (m *Manager) Snapshot() Snapshot {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return Snapshot{m.phase, m.lastError, m.port, m.paths.Data, m.log.Lines(), m.settings, m.systemLanguage}
+	return Snapshot{Phase: m.phase, Error: m.lastError, Port: m.port, Data: m.paths.Data,
+		Logs: m.log.Lines(), Settings: m.settings, SystemLanguage: m.systemLanguage,
+		RestartRequired: m.cancel != nil && !sameLaunchSettings(m.settings, m.activeSettings),
+		LANActive:       m.phase == "running" && m.lanIP != ""}
+}
+
+// Appearance and next-app-launch preferences do not alter a running DSH child.
+// Compare only values consumed by the installer and supervisor at Start.
+func sameLaunchSettings(a, b Settings) bool {
+	return a.Port == b.Port && a.Proxy == b.Proxy && a.LAN == b.LAN &&
+		a.Command == b.Command && a.Registry == b.Registry && a.StartupMinutes == b.StartupMinutes
 }
 
 // Appearance changes are live and never restart an active DSH conversation.
@@ -69,9 +82,8 @@ func (m *Manager) ConfigureAppearance(s Settings) error {
 func (m *Manager) Configure(s Settings) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.cancel != nil {
-		return errors.New("请先停止服务再修改设置")
-	}
+	// Saving updates the desired configuration only. Existing conversations and
+	// the active LAN listener keep their launch configuration until a restart.
 	if err := m.paths.SaveSettings(s); err != nil {
 		return err
 	}
@@ -102,6 +114,8 @@ func (m *Manager) Start() error {
 	m.lastError = ""
 	m.launch = ""
 	s := m.settings
+	m.activeSettings = s
+	m.log.Add("正在准备独立运行环境")
 	go m.run(ctx, s, m.done)
 	return nil
 }
@@ -173,18 +187,21 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 	if i.Settings.LAN {
 		ip, e := privateAddress()
 		if e != nil {
-			return false, e
+			// Being offline must not prevent local work when LAN is enabled by
+			// default. Never fall back to a public address or wildcard binding.
+			m.log.Add("局域网暂不可用，继续仅本机访问：" + e.Error())
+		} else {
+			server, e := lanProxy(ip, port)
+			if e != nil {
+				return true, e
+			}
+			defer server.Close()
+			args = append(args, "--trusted-host", ip)
+			m.mu.Lock()
+			m.lanIP = ip
+			m.mu.Unlock()
+			m.log.Add("局域网访问已启用，仅绑定 " + ip + "；链接持有者拥有完整权限")
 		}
-		server, e := lanProxy(ip, port)
-		if e != nil {
-			return true, e
-		}
-		defer server.Close()
-		args = append(args, "--trusted-host", ip)
-		m.mu.Lock()
-		m.lanIP = ip
-		m.mu.Unlock()
-		m.log.Add("局域网访问已启用，仅绑定 " + ip + "；链接持有者拥有完整权限")
 	}
 	cmd := exec.Command(executable, args...)
 	cmd.Env = i.environment(r)

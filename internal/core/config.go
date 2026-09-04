@@ -48,7 +48,7 @@ type Settings struct {
 }
 
 func Defaults() Settings {
-	return Settings{Port: 3080, HideOnClose: true, AutoStart: true, Language: "system", Registry: "https://registry.npmjs.org", StartupMinutes: 60, Width: 1280, Height: 840}
+	return Settings{Port: 3080, LAN: true, TrayOnly: true, HideOnClose: true, AutoStart: true, Language: "system", Registry: "https://registry.npmjs.org", StartupMinutes: 60, Width: 1280, Height: 840}
 }
 func (s Settings) Validate() error {
 	if s.Port < 1024 || s.Port > 65535 {

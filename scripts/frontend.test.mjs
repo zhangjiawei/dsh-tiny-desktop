@@ -3,6 +3,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { transform } from "../frontend/node_modules/esbuild/lib/main.js";
 
+test("control page forbids nested frames required by Linux origin policy", async () => {
+  const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
+  assert.match(html, /frame-src 'none'/);
+  assert.doesNotMatch(html, /<iframe\b/i);
+});
+
 test("status polling never rewrites an open language picker", async () => {
   let value = "语言",
     writes = 0;

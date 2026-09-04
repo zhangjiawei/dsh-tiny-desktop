@@ -57,6 +57,57 @@ func TestSettingsV1UpgradeAndLiveAppearance(t *testing.T) {
 		t.Fatalf("appearance altered runtime: %+v", got)
 	}
 }
+
+func TestSaveWhileRunningNeverStopsService(t *testing.T) {
+	p, _ := NewPaths(t.TempDir())
+	s := Defaults()
+	m := NewManager(p, s)
+	cancelled := false
+	m.cancel = func() { cancelled = true }
+	m.phase, m.port, m.launch = "running", 3080, "http://127.0.0.1:3080/"
+	s.Port = 4000
+	if err := m.Configure(s); err != nil {
+		t.Fatal(err)
+	}
+	if cancelled || m.Snapshot().Phase != "running" || m.Snapshot().Port != 3080 {
+		t.Fatal("saving settings interrupted the active service")
+	}
+	stored, err := p.LoadSettings()
+	if err != nil || stored.Port != 4000 {
+		t.Fatal("new settings not persisted", err)
+	}
+	if !m.Snapshot().RestartRequired {
+		t.Fatal("pending restart was not reported")
+	}
+	s.Port = 3080
+	s.AutoStart = false
+	if err = m.Configure(s); err != nil {
+		t.Fatal(err)
+	}
+	if m.Snapshot().RestartRequired {
+		t.Fatal("appearance/auto-start changes require no service restart")
+	}
+	s.Port = 0
+	if m.Configure(s) == nil || m.Snapshot().Settings.Port != 3080 {
+		t.Fatal("invalid save modified settings")
+	}
+}
+
+func TestFreshToggleDefaultsPreserveExistingChoices(t *testing.T) {
+	p, _ := NewPaths(t.TempDir())
+	s, err := p.LoadSettings()
+	if err != nil || !s.TrayOnly || !s.LAN || !s.AutoStart || !s.HideOnClose || s.AlwaysOnTop {
+		t.Fatalf("unexpected fresh defaults: %+v, %v", s, err)
+	}
+	s.LAN, s.TrayOnly, s.AutoStart, s.HideOnClose = false, false, false, false
+	if err = p.SaveSettings(s); err != nil {
+		t.Fatal(err)
+	}
+	got, err := p.LoadSettings()
+	if err != nil || got != s {
+		t.Fatal("upgrade overwrote explicit user choices")
+	}
+}
 func TestLatestPluginsResolveAndReceiptFreezesVersions(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"version": "1.2.3"})

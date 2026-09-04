@@ -154,6 +154,11 @@ const en: Record<string, string> = {
     "Authenticated link copied. Do not share publicly.",
   "已打开本项目的 GitHub Releases": "Opened this project's GitHub Releases.",
   设置已保存: "Settings saved.",
+  "保存不会中断服务，启动参数在下次启动时生效。": "Saving keeps your service running. Launch changes take effect on the next start.",
+  "已保存，启动参数有待应用。下次启动生效，或点击“应用并重启”。": "Saved changes are pending. They apply on the next start, or choose Apply & restart.",
+  "设置已保存，下次启动生效；当前服务未中断。": "Settings saved for the next start. Your current service was not interrupted.",
+  "控制中心连接失败，正在重试。请退出并重新打开应用，仍失败请更新版本。": "Control Center connection failed. Retrying. Quit and reopen the app; update it if the problem persists.",
+  连接失败: "Connection failed",
   "选项已改变，请重新选择目录以预览。":
     "Options changed. Choose the directory again to preview.",
   "导入完成。启动后将重建独立插件环境。":
