@@ -42,6 +42,8 @@ jobs:
         run: npm ci --no-audit --no-fund && npm test && npm run build
       - name: Test core
         run: go test -count=1 ./internal/core
+      - name: Verify cross-platform module metadata
+        run: go mod tidy -diff
       - name: Race detector
         if: matrix.goarch == 'amd64'
         run: go test -race ./internal/core
