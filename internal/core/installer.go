@@ -140,7 +140,9 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	previous, receiptErr := i.readReceipt()
 	// Preserve legacy pinned receipts too: ordinary launches must not silently
 	// upgrade plugins that are already installed in an existing user's profile.
-	if receiptErr == nil && previous.DSH == DSHVersion && previous.PNPM == PnpmVersion && previous.Registry == i.Settings.Registry {
+	// Registry is provenance, not installation identity: changing a mirror must
+	// not reinitialise a completed profile or silently upgrade its plugins.
+	if receiptErr == nil && previous.DSH == DSHVersion && previous.PNPM == PnpmVersion {
 		if _, e := os.Stat(r.CLI); e == nil {
 			return r, nil
 		}
@@ -176,7 +178,11 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	// Let the official CLI initialize and reconcile its profile. No private
 	// cordis config format is invented by the desktop shell.
 	i.Log.Add("初始化独立 Web profile")
-	if err = i.run(ctx, r, r.CLI, "plugin", "--profile", "web", "install", registryArg); err != nil {
+	// CI=true keeps all child package managers non-interactive. A desktop
+	// profile, unlike the source repository, is mutable and may have an old lock
+	// after an interrupted install. Reconcile ONLY this private profile's lock;
+	// never remove it, set a global pnpm option, or disable frozen source builds.
+	if err = i.run(ctx, r, r.CLI, "plugin", "--profile", "web", "install", "--no-frozen-lockfile", registryArg); err != nil {
 		return r, err
 	}
 	profile := filepath.Join(i.Paths.Data, "profiles/web")

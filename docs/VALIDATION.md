@@ -1,5 +1,12 @@
 # 验证记录
 
+## v0.2.4 安装恢复验证
+
+- 用户 Windows 日志在独立 profile 初始化阶段报 `ERR_PNPM_OUTDATED_LOCKFILE`，缺少六个依赖 specifier。使用独立临时目录保留旧 lock、删除 manifest 的六依赖，并保留相同 pnpm workspace 设置，官方 CLI 稳定复现完全相同的错误。仅添加 `--no-frozen-lockfile` 后同一夹具安装成功。没有改动全局 DSH、全局 pnpm 或原用户数据。
+- 生产安装器保留 `CI=true` 非交互行为，仅在私有 profile 初始化命令上显式允许锁文件协调。新 `install-recovery-smoke.mjs` 先用官方 CLI 验证旧命令确实报同一错误，再走真实 Manager/Installer 完整恢复。Mac 本地恢复后在 3080 认证就绪，六插件、真实 PTY、进程停止和会话哨兵内容保持均通过。
+- 安装回执中的 Registry 改为来源记录，不再作为重装条件。更换到不可访问仓库时仍复用已安装版本的回归，修改前失败、修改后通过。
+- v0.2.3 标签工作流 `33895811979` 已取消，未发布；不重写旧标签。新增恢复测试进入六平台发布关卡，最终结果待发布后补充。
+
 ## v0.2.3 导航时序修正
 
 - v0.2.2 标签构建的 Windows x64 job `101094974237` 在 `default mirror saved` 等待处超时；此前真实 DSH/六插件/PTY 和正式 exe UIA 全部通过。发布被关卡阻止，未发布 v0.2.2 安装包；不移动或覆盖该标签。

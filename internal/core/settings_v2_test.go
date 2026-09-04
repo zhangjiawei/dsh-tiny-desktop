@@ -169,7 +169,9 @@ func TestExistingInstallReusesReceiptWithoutRegistryAccess(t *testing.T) {
 	for n := range plugins {
 		plugins[n].Version = "1.2.3"
 	}
-	b, _ := json.Marshal(installReceipt{DSHVersion, PnpmVersion, plugins, "pinned", s.Registry})
+	// A changed download mirror is not an instruction to reinstall or upgrade
+	// a completed profile. Reuse it even when the new registry is unreachable.
+	b, _ := json.Marshal(installReceipt{DSHVersion, PnpmVersion, plugins, "pinned", "https://registry.npmjs.org"})
 	if err = os.WriteFile(filepath.Join(p.Runtime, "receipt.json"), b, 0600); err != nil {
 		t.Fatal(err)
 	}
