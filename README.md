@@ -6,7 +6,7 @@ An independent, lightweight desktop home for [DeepSeek Harness](https://github.c
 
 从 [GitHub Releases](https://github.com/zhangjiawei/dsh-tiny-desktop/releases) 下载对应平台/架构的压缩包，校验 `SHA256SUMS.txt` 后解压运行。
 
-- macOS：将 `DSH Tiny.app` 拖到 Applications。当前为 ad-hoc 签名，**没有 Apple Developer ID 公证**；系统可能要求在隐私与安全中确认打开。不要关闭系统 Gatekeeper。
+- macOS 13+：将 `DSH Tiny.app` 拖到 Applications。当前为 ad-hoc 签名，**没有 Apple Developer ID 公证**；系统可能要求在隐私与安全中确认打开。不要关闭系统 Gatekeeper。
 - Windows：运行 `dsh-tiny.exe`，需要 Microsoft WebView2 Runtime。首版未做商业代码签名，可能显示 SmartScreen 提示。
 - Linux：运行 `./dsh-tiny`；需要 GTK4 / WebKitGTK 6.0（Ubuntu 24.04: `libgtk-4-1 libwebkitgtk-6.0-4`）。通知还需要 `notify-send`。
 
@@ -14,7 +14,7 @@ An independent, lightweight desktop home for [DeepSeek Harness](https://github.c
 
 默认端口 **3080**；发生占用时改用空闲端口，不终止占用者。安装、启动和错误状态都可在控制中心查看。运行后通过系统托盘进入控制中心；`Cmd/Ctrl+,` 打开设置。
 
-浏览器必须完成 DSH 官方认证。用“在浏览器中打开”或“复制认证链接”完成首次登录；不需要从日志里找 token。**链接是完整访问凭证，请勿公开分享。** 当前分享地址只允许同一台电脑访问。
+浏览器必须完成 DSH 官方认证。用“在浏览器中打开”或“复制认证链接”完成首次登录；不需要从日志里找 token。**链接是完整访问凭证，请勿公开分享。** 默认只允许同一台电脑访问。设置中可显式开启局域网分享，二维码改用私有 IPv4 地址，仍由 DSH 校验认证与 Host。HTTP 局域网流量未加密，不要用于公共 Wi-Fi、公网或不可信网络；操作系统防火墙/本地网络权限可能需要用户授权。
 
 ## 独立数据与导入
 
@@ -26,7 +26,7 @@ An independent, lightweight desktop home for [DeepSeek Harness](https://github.c
 | Windows | `%AppData%/dsh-tiny-desktop` |
 | Linux | `$XDG_CONFIG_HOME/dsh-tiny-desktop` 或 `~/.config/dsh-tiny-desktop` |
 
-根目录下 `dsh/` 是独立 DSH_HOME，`runtime/` 是托管运行环境。测试可通过 `DSH_TINY_HOME` 指定另一个根目录。
+根目录下 `dsh/` 是独立 DSH_HOME，`runtime/` 是托管运行环境，`logs/runtime.log` 是脱敏日志（单文件 5 MiB 轮换，保留上一份）。测试可通过 `DSH_TINY_HOME` 指定另一个根目录。
 
 导入前先退出源 DSH，再停止本应用服务。控制中心选择原 `~/.dsh`，预览文件数量/大小，按需勾选凭据。仅导入会话、附件、技能、设置、agent presets 和 task-board；不导入执行代码、profiles、缓存、锁。目标数据会保留为 `backup-*`，导入后可恢复。原目录只读。
 

@@ -19,7 +19,8 @@ GitHub Actions 原生六平台测试、打包及 Release 尚在执行前准备�
 
 - Windows/Linux 原生 GUI 操作未由本地 Mac 代替验证。
 - 模型对话需要用户自己的 API Key；IM 平台绑定和通知权限未代替用户配置。
-- 局域网代理已实现，实际认证/WebSocket 与关闭回归待完成。
+- 局域网 Host 保留、错误 Host 拒绝、WebSocket 双向转发的自动化测试通过。当前本地 Mac 访问最小私有 IPv4 HTTP 测试服务器也会超时，因此该机器的真实 LAN 认证尚未通过；未修改系统代理/防火墙。Linux CI 将独立测试真实 LAN 认证。
+- 全新隔离目录的第二轮验证：六个固定版本插件注册、CLI 和插件 profile 中真实原生 PTY 的创建/输出/退出通过，不仅检查包文件存在。
 - macOS 使用 ad-hoc 签名，无 Apple Developer ID 公证；Windows 无商业签名。
 - 更新入口由用户下载替换，不做静默二进制覆盖；不包含分屏或跨平台透明窗口效果。
 - DSH 及 Wails v3 本身仍为预发布版本；第三方插件的业务功能不因“安装成功”而视为全部验证。

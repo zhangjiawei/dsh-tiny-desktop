@@ -9,7 +9,7 @@ permissions:
   contents: read
 concurrency:
   group: build-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 jobs:
   build:
     strategy:
@@ -47,6 +47,9 @@ jobs:
         run: go test -race ./internal/core
       - name: Real isolated DSH startup and shutdown
         run: go run ./cmd/smoke --root "${{ runner.temp }}/dsh-tiny-smoke"
+      - name: Real LAN authentication
+        if: runner.os == 'Linux'
+        run: go run ./cmd/smoke --root "${{ runner.temp }}/dsh-tiny-smoke" --lan
       - name: Package native application
         env:
           GOARCH: ${{ matrix.goarch }}
@@ -81,4 +84,4 @@ jobs:
         run: |
           cd release
           sha256sum *.zip *.tar.gz > SHA256SUMS.txt
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "DSH Tiny $TAG" --notes-file ../docs/RELEASE_NOTES.md *.zip *.tar.gz SHA256SUMS.txt
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "DSH Tiny $TAG" --prerelease --notes-file ../docs/RELEASE_NOTES.md *.zip *.tar.gz SHA256SUMS.txt

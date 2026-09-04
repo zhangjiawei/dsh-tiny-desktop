@@ -1,8 +1,7 @@
 // Native packaging is intentionally explicit: artifacts contain no developer
 // profile, credentials, node_modules or downloaded user runtime.
 import { spawnSync } from "node:child_process";
-import { mkdir, writeFile, copyFile, readdir } from "node:fs/promises";
-import path from "node:path";
+import { mkdir, writeFile, copyFile } from "node:fs/promises";
 import sharp from "../frontend/node_modules/sharp/lib/index.js";
 const version = process.env.VERSION || "0.1.0";
 if (!/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(version))
@@ -48,7 +47,24 @@ if (platform === "darwin") {
   ]);
   await writeFile(
     contents + "/Info.plist",
-    `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleName</key><string>DSH Tiny</string><key>CFBundleDisplayName</key><string>DSH Tiny</string><key>CFBundleIdentifier</key><string>com.zhangjiawei.dsh-tiny-desktop</string><key>CFBundleExecutable</key><string>dsh-tiny</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleShortVersionString</key><string>${version}</string><key>CFBundleVersion</key><string>${version}</string><key>CFBundleIconFile</key><string>AppIcon</string><key>LSMinimumSystemVersion</key><string>12.0</string><key>NSHighResolutionCapable</key><true/><key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/><key>NSAllowsArbitraryLoadsInWebContent</key><true/></dict></dict></plist>`,
+    `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleName</key><string>DSH Tiny</string>
+<key>CFBundleDisplayName</key><string>DSH Tiny</string>
+<key>CFBundleIdentifier</key><string>com.zhangjiawei.dsh-tiny-desktop</string>
+<key>CFBundleExecutable</key><string>dsh-tiny</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>${version}</string>
+<key>CFBundleVersion</key><string>${version}</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
+<key>LSMinimumSystemVersion</key><string>13.0</string>
+<key>NSHighResolutionCapable</key><true/>
+<key>NSLocalNetworkUsageDescription</key><string>Connect to your local DSH workspace and optionally share it on a trusted private network.</string>
+<key>NSAppTransportSecurity</key><dict>
+<key>NSAllowsLocalNetworking</key><true/>
+<key>NSAllowsArbitraryLoadsInWebContent</key><true/>
+</dict></dict></plist>`,
   );
   run("go", [
     "build",
@@ -77,6 +93,11 @@ if (platform === "darwin") {
   const dir = `dist/${base}`;
   await mkdir(dir, { recursive: true });
   const binary = "dsh-tiny" + (platform === "win32" ? ".exe" : "");
+  if(platform==='win32') {
+    // Embed the original icon and a per-monitor DPI-aware GUI manifest in the
+    // executable itself, not only as a loose .ico next to it. No admin rights.
+    run('go',['run','github.com/tc-hib/go-winres@v0.3.3','simply','--arch',arch,'--out','cmd/desktop/rsrc','--icon',icon,'--manifest','gui','--product-name','DSH Tiny','--file-description','DSH Tiny Desktop','--product-version',version,'--file-version',version]);
+  }
   run("go", [
     "build",
     "-tags",
@@ -91,6 +112,7 @@ if (platform === "darwin") {
   ]);
   await copyFile(icon, dir + "/icon.png");
   await copyFile("README.md", dir + "/README.md");
+  await copyFile("LICENSE", dir + "/LICENSE");
   if (platform === "win32") {
     const png = await sharp(icon).resize(256).png().toBuffer();
     const header = Buffer.alloc(22);
