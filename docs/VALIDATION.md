@@ -9,7 +9,11 @@
 - 托盘恢复测试捕获 Wails beta.16 Dock API 主线程同步派发造成的 SIGILL。已将托盘和菜单动作移至 Go 工作协程；修复后的完整隐藏/恢复回归等待解锁本机桌面，不能据代码检查标为通过。
 - 隔离目录 `/tmp/dsh-tiny-v020-latest-20260904` 完成真实 latest 安装：codex-ui 0.2.103、im-connect 0.1.34、automation 0.1.30、dshmarket 1.41.0、task-complete-notify 0.2.0、better-sidebar 0.18.0；普通重启复用精确版本回执。
 - 同一隔离目录使用 UI 示例中的 `pnpm --allow-build=… dlx @deepseek-ai/dsh@0.1.2-rc.1 web` 完成真实端口避让、token→Cookie 认证和进程停止；CLI、profile、实际 dlx 缓存三处原生 PTY 创建/输出/退出通过。没有用受管 CLI 的 PTY 结果冒充 dlx 测试。
-- v0.2.0 六平台 CI 与最终 Release 校验待执行；下面的六平台结果仅属于 v0.1.0。
+- 候选代码 `be2798c` 的 [v0.2.0 六平台 CI](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33876884592) 已成功完成。macOS Intel/ARM64、Windows x64/ARM64、Linux x64/ARM64 全部通过核心测试、前端回归、真实 DSH/六插件安装、认证、进程退出、真实自定义 pnpm dlx 与其原生 PTY、原生打包及产物上传。三个 amd64 runner 额外通过 race；两个 Linux runner 额外通过真实 LAN 认证。
+- CI 曾捕获并修复 Windows Dock 服务缺少 x/image/x/text 模块校验记录；新增 `go mod tidy -diff` 门禁。Windows 检出 CRLF 导致的纯换行误报也已通过 `.gitattributes` 固定 LF 解决，而非移除检查。
+- 本地最终候选包重新打包并通过 `codesign --verify --deep --strict`，正常退出旧 DSH Tiny 后使用同一独立目录启动新版；2026-09-04 21:17:35（UTC+8）记录“已认证并就绪，端口 64913”。旧包备份保留在忽略目录 `work/DSH Tiny before-final-v020.app`；原 DshShell 和原数据目录未改变。
+- **发布仍待完成**：Mac 当前锁屏，`scripts/desktop-qa-macos.swift <qa-pid> tray-cycle` 明确返回 BLOCKED，不把丢弃的鼠标事件算作成功。解锁后需在隔离 QA 实例验证完整最小化/关闭/托盘恢复循环，以及切换路由后的打开窗口、打开浏览器、检查更新和 QR 按钮。然后创建 v0.2.0 tag，等待发布工作流并校验公开资产；目前尚未创建 v0.2.0 Release。
+- 下面的历史发布记录仅属于 v0.1.0，不是 v0.2.0 的 GUI 或公开资产验证结果。
 
 ## 本地验证（2026-09-04，macOS Intel）
 
