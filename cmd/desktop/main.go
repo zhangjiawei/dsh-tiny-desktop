@@ -23,11 +23,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	settings, err := p.LoadSettings()
-	if err != nil {
-		log.Fatal(err)
+	settings, settingsError := p.LoadSettings()
+	// A truncated settings file must lead to a visible repairable control page,
+	// not an invisible GUI exit. Preserve the bad file until an explicit save.
+	if settingsError != nil {
+		settings = core.Defaults()
+		settings.AutoStart = false
 	}
 	manager := core.NewManager(p, settings)
+	if settingsError != nil {
+		manager.ReportError(settingsError)
+	}
 	var app *application.App
 	var control, workspace *application.WebviewWindow
 	assets, _ := fs.Sub(frontend.Assets, "dist")
@@ -189,7 +195,7 @@ func main() {
 		b := workspace.Bounds()
 		s.Width = b.Width
 		s.Height = b.Height
-		if s.Validate() == nil {
+		if s.Validate() == nil && settingsError == nil {
 			_ = p.SaveSettings(s)
 		}
 	})

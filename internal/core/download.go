@@ -96,7 +96,9 @@ func download(ctx context.Context, a runtimeAsset, dest, proxy string) error {
 
 func safeArchivePath(root, name string) (string, error) {
 	// Backslashes are rejected on every platform so an archive has one meaning.
-	if strings.Contains(name, "\\") || strings.Contains(name, ":") || filepath.IsAbs(name) {
+	// On Windows /absolute is rooted but not IsAbs (there is no drive letter).
+	// Archive paths follow POSIX semantics, so reject a leading slash explicitly.
+	if strings.HasPrefix(name, "/") || strings.Contains(name, "\\") || strings.Contains(name, ":") || filepath.IsAbs(name) {
 		return "", errors.New("归档路径不安全")
 	}
 	p := filepath.Join(root, filepath.FromSlash(name))

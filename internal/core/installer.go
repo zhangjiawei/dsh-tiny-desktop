@@ -149,7 +149,7 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 		return r, err
 	}
 	i.Log.Add("安装独立 pnpm " + PnpmVersion)
-	if err = i.run(ctx, r, r.NPM, "install", "--prefix", toolsDir, "--ignore-scripts", "--no-audit", "--no-fund", "--registry=https://registry.npmjs.org/", "pnpm@"+PnpmVersion); err != nil {
+	if err = i.run(ctx, r, r.NPM, "install", "--prefix", toolsDir, "--save-exact", "--ignore-scripts", "--no-audit", "--no-fund", "--registry=https://registry.npmjs.org/", "pnpm@"+PnpmVersion); err != nil {
 		return r, err
 	}
 	i.Log.Add("安装固定版本 DSH " + DSHVersion)
@@ -161,7 +161,7 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	if err = AtomicWrite(filepath.Join(dshDir, "package.json"), policy, 0600); err != nil {
 		return r, err
 	}
-	if err = i.run(ctx, r, r.NPM, "install", "--prefix", dshDir, "--ignore-scripts", "--no-audit", "--no-fund", "--registry=https://registry.npmjs.org/", "@deepseek-ai/dsh@"+DSHVersion); err != nil {
+	if err = i.run(ctx, r, r.NPM, "install", "--prefix", dshDir, "--save-exact", "--ignore-scripts", "--no-audit", "--no-fund", "--registry=https://registry.npmjs.org/", "@deepseek-ai/dsh@"+DSHVersion); err != nil {
 		return r, err
 	}
 	if err = i.run(ctx, r, r.NPM, "rebuild", "--prefix", dshDir, "--ignore-scripts=false", "@deepseek-ai/dsh-subprocess-local@0.1.2-rc.1", "node-pty@1.2.0-beta.15", "koffi@3.2.1"); err != nil {

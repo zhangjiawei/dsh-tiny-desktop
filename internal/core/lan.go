@@ -39,20 +39,23 @@ func lanProxy(ip string, port int) (*http.Server, error) {
 		return nil, err
 	}
 	target := &url.URL{Scheme: "http", Host: net.JoinHostPort("127.0.0.1", strconv.Itoa(port))}
+	server := &http.Server{ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20, Handler: newLANHandler(target, authority)}
+	go server.Serve(listener)
+	return server, nil
+}
+func newLANHandler(target *url.URL, authority string) http.Handler {
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = &http.Transport{Proxy: nil}
 	proxy.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, _ error) {
 		http.Error(w, "DSH 暂时不可用", http.StatusBadGateway)
 	}
-	server := &http.Server{ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Host != authority {
 			http.Error(w, "Invalid Host", http.StatusForbidden)
 			return
 		}
 		proxy.ServeHTTP(w, r)
-	})}
-	go server.Serve(listener)
-	return server, nil
+	})
 }
 func (m *Manager) ShareURL() (string, error) {
 	m.mu.Lock()

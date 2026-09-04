@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,7 +33,14 @@ type Manager struct {
 }
 
 func NewManager(p Paths, s Settings) *Manager {
-	return &Manager{paths: p, settings: s, phase: "stopped"}
+	return &Manager{paths: p, settings: s, phase: "stopped", log: Log{path: filepath.Join(p.Logs, "runtime.log")}}
+}
+func (m *Manager) ReportError(err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.phase = "error"
+	m.lastError = Redact(err.Error())
+	m.log.Add(m.lastError)
 }
 func (m *Manager) Snapshot() Snapshot {
 	m.mu.Lock()

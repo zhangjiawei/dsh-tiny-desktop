@@ -3,6 +3,7 @@ package core
 import (
 	"archive/zip"
 	"context"
+	"encoding/json"
 	"io"
 	"net"
 	"net/http"
@@ -181,12 +182,28 @@ func TestSnapshotNeverContainsToken(t *testing.T) {
 	m := NewManager(p, Defaults())
 	m.launch = "secret"
 	m.phase = "running"
-	if strings.Contains(m.Snapshot().Error, "secret") {
+	b, _ := json.Marshal(m.Snapshot())
+	if strings.Contains(string(b), "secret") {
 		t.Fatal("token leaked")
 	}
 	u, e := m.LaunchURL()
 	if e != nil || u != "secret" {
 		t.Fatal(e)
+	}
+}
+
+func TestPersistentLogRedactsQuotedCredentials(t *testing.T) {
+	p, _ := NewPaths(t.TempDir())
+	m := NewManager(p, Defaults())
+	m.log.Add(`{"apiKey":"NEVER_PERSIST","authorization":"Bearer PRIVATE_BEARER"}`)
+	b, e := os.ReadFile(filepath.Join(p.Logs, "runtime.log"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, secret := range []string{"NEVER_PERSIST", "PRIVATE_BEARER"} {
+		if strings.Contains(string(b), secret) {
+			t.Fatal("credential persisted")
+		}
 	}
 }
 func TestManifestSupportsAllReleaseTargets(t *testing.T) {
