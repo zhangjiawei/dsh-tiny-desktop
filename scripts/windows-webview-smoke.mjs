@@ -65,8 +65,14 @@ async function evaluate(expression) {
 const status = () => evaluate(`({phase:document.querySelector('#phase')?.textContent,
   data:document.querySelector('#data-path')?.textContent, port:document.querySelector('#port')?.textContent,
   logs:!!document.querySelector('#log-output')?.textContent,
+  warning:document.querySelector('#port-warning')?.textContent,
+  warningHidden:document.querySelector('#port-warning')?.hidden,
   pending:document.querySelector('#settings-status')?.textContent})`);
+// Deliberately occupy the requested port: the banner must describe the real
+// listening service, not merely a guessed candidate or a pending preference.
+const occupied = createServer(socket => socket.destroy());
 try {
+  await new Promise((r,j)=>{occupied.once('error',j);occupied.listen(3080,'127.0.0.1',r);});
   const target=await until(async()=>{
     try {
       const targets=await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json();
@@ -83,15 +89,29 @@ try {
   });
   const idle=await until(async()=>{const s=await status();return s.phase==="Stopped" && s.data ? s : null;}, "real status bridge (data directory)");
   assert.ok(idle.data.toLowerCase().startsWith(root.toLowerCase()));
+  assert.equal(await evaluate(`document.title`), 'DSH Tiny · Settings');
+  await evaluate(`location.hash='#settings';document.querySelector('#command-example').click();document.querySelector('#registry-default').click()`);
+  const defaults = await evaluate(`({command:document.querySelector('#command').value,registry:document.querySelector('#registry').value})`);
+  assert.match(defaults.command,/^pnpm .* dlx @deepseek-ai\/dsh@.+ web$/);
+  assert.equal(defaults.registry,'https://registry.npmmirror.com');
+  await evaluate(`document.querySelector('#settings-form').requestSubmit()`);
+  await until(async()=>JSON.parse(await readFile(settingsPath,'utf8')).registry===defaults.registry,'default mirror saved');
+  await evaluate(`location.hash='#overview'`);
   console.log("PASS: native WebView2 idle status, empty logs and independent data directory rendered");
   await evaluate(`document.querySelector('#start').click()`);
   const running=await until(async()=>{const s=await status();return s.phase==="Running" && s.logs ? s : null;}, "DSH ready through native control bridge",180000);
   assert.match(running.port,/127\.0\.0\.1\s*:\s*\d+/);
+  const actualPort = Number(running.port.split(':').at(-1).trim());
+  assert.notEqual(actualPort,3080);
+  assert.equal(running.warningHidden,false);
+  assert.ok(running.warning.includes(String(actualPort)) && running.warning.includes('3080'));
+  console.log('PASS: default pnpm command and domestic mirror; real occupied-port banner uses actual random service port');
   console.log("PASS: native Start button, authenticated DSH readiness, port and logs");
   // Hash navigation must keep working. Save runtime settings without stopping.
   await evaluate(`location.hash='#settings';document.querySelector('#port-input').value='43081';document.querySelector('#settings-form').requestSubmit()`);
   await until(async()=>{const s=await status();return s.pending?.includes("pending") && s.phase==="Running" && s.port===running.port;}, "save without interrupting running service");
   assert.equal(JSON.parse(await readFile(settingsPath,"utf8")).port,43081);
+  assert.equal((await status()).warning,running.warning,'pending preference must not change active conflict warning');
   console.log("PASS: save persists pending launch settings while current service stays running");
   await evaluate(`location.hash='#overview';document.querySelector('#open').click()`);
   await until(()=>evaluate(`document.querySelector('#notice')?.textContent==='Workspace opened.'`),"open workspace response");
@@ -102,13 +122,29 @@ try {
   // Verify the next start actually applies the saved port, then stop cleanly.
   await evaluate(`document.querySelector('#start').click()`);
   await until(async()=>{const s=await status();return s.phase==="Running" && s.port.includes('43081');},"saved launch port applied",180000);
+  assert.equal((await status()).warningHidden,true);
   console.log("PASS: open, QR, stop, next-start configuration over real Windows bridge");
+  await evaluate(`document.querySelector('#quit').click()`);
+  assert.equal(await evaluate(`document.querySelector('#quit-dialog').open`),true);
+  await evaluate(`document.querySelector('#cancel-quit').click()`);
+  assert.equal((await status()).phase,'Running');
+  assert.equal(await evaluate(`document.querySelector('#quit-dialog').open`),false);
+  // Do not await a CDP reply from a document that intentionally disappears.
+  await evaluate(`document.querySelector('#quit').click();setTimeout(()=>document.querySelector('#confirm-quit').click(),100)`);
+  const quitDeadline=Date.now()+30000;
+  while(child.exitCode===null && Date.now()<quitDeadline) await pause(250);
+  assert.equal(child.exitCode,0,'Settings Quit must exit the app cleanly');
+  const freed=createServer();
+  await new Promise((r,j)=>{freed.once('error',j);freed.listen(43081,'127.0.0.1',r);});
+  await new Promise(r=>freed.close(r));
+  console.log('PASS: cancel quit preserves DSH; Settings Quit exits application and releases DSH service port');
 } finally {
-  if (ws?.readyState===WebSocket.OPEN) {
+  if (child.exitCode===null && ws?.readyState===WebSocket.OPEN) {
     try {await evaluate(`document.querySelector('#stop')?.click()`);await until(async()=>(await status()).phase==="Stopped","cleanup",30000);} catch {}
     ws.close();
   }
   // This process tree belongs exclusively to this test; never kill by image name.
-  if (child.pid) await new Promise(r=>spawn("taskkill",["/PID",String(child.pid),"/T","/F"],{stdio:"ignore"}).on("exit",r));
+  if (child.pid && child.exitCode===null) await new Promise(r=>spawn("taskkill",["/PID",String(child.pid),"/T","/F"],{stdio:"ignore"}).on("exit",r));
+  if (occupied.listening) await new Promise(r=>occupied.close(r));
   for (const p of pending.values()) clearTimeout(p.timer);
 }

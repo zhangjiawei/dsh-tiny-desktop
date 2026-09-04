@@ -30,6 +30,9 @@ type State = {
   systemLanguage: string;
   restartRequired: boolean;
   lanActive: boolean;
+  portChanged: boolean;
+  preferredPort: number;
+  defaults: Settings;
 };
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
@@ -54,7 +57,7 @@ function call(action: string, data: unknown = {}): Promise<any> {
     const id = ++seq;
     const timer = setTimeout(() => {
       if (pending.delete(id))
-        reject(new Error(t(action === "status" ? "控制中心连接失败，正在重试。请退出并重新打开应用，仍失败请更新版本。" : "操作仍在处理中，请查看日志")));
+        reject(new Error(t(action === "status" ? "设置连接失败，正在重试。请退出并重新打开应用，仍失败请更新版本。" : "操作仍在处理中，请查看日志")));
     }, action === "status" ? 8000 : 120000);
     pending.set(id, { resolve, reject, timer });
     try {
@@ -91,6 +94,10 @@ function render(s: State) {
   $("phase").textContent = t(labels[s.phase] || s.phase);
   $("phase").className = "badge " + s.phase;
   $("port").textContent = `127.0.0.1 : ${s.port || "—"}`;
+  $("port-warning").hidden = !s.portChanged;
+  $("port-warning").textContent = s.portChanged
+    ? (language === "en" ? `Port ${s.preferredPort} is occupied. Using random available port ${s.port}.` : `端口已占用，已使用随机端口 ${s.port}（原端口 ${s.preferredPort}）`)
+    : "";
   $("headline").textContent = t(
     s.phase === "running"
       ? "一切就绪，开始你的下一步。"
@@ -222,9 +229,17 @@ action("apply-restart", async () => {
   notice("设置已保存");
 });
 $("command-example").onclick = () => {
-  $<HTMLInputElement>("command").value =
-    "pnpm --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=node-pty --allow-build=koffi dlx @deepseek-ai/dsh@0.1.2-rc.1 web";
+  if (state) $<HTMLInputElement>("command").value = state.defaults.command;
 };
+$("registry-default").onclick = () => {
+  if (state) $<HTMLInputElement>("registry").value = state.defaults.registry;
+};
+$("quit").onclick = () => $<HTMLDialogElement>("quit-dialog").showModal();
+$("cancel-quit").onclick = () => $<HTMLDialogElement>("quit-dialog").close();
+action("confirm-quit", async () => {
+  notice("正在退出应用…");
+  await call("quit");
+});
 for (const id of ["language", "tray-only", "hide", "ontop"]) {
   $(id).onchange = async () => {
     if (!state) return;

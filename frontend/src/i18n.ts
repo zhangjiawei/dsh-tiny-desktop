@@ -1,7 +1,19 @@
 // Keep translation at the shell boundary. Never rewrite or inject the DSH DOM.
 export let language = "en";
 const en: Record<string, string> = {
-  控制中心: "Control Center",
+  设置: "Settings",
+  退出应用: "Quit app",
+  确认退出: "Confirm quit",
+  "退出 DSH Tiny？": "Quit DSH Tiny?",
+  "退出将停止 DSH 服务，正在运行的任务可能中断。关闭窗口则可继续在托盘运行。": "Quitting stops DSH and may interrupt running tasks. Close the window to keep it running in the tray.",
+  取消: "Cancel",
+  "正在退出应用…": "Quitting app…",
+  恢复默认命令: "Reset command",
+  恢复默认仓库: "Reset registry",
+  启动程序及参数: "Program and arguments",
+  "支持带引号的路径和参数；不支持 Shell 管道、变量、重定向或多条命令。端口、监听地址和认证由应用管理，请勿填写 --port、--host、--token 或关闭认证的参数。pnpm 使用应用内置环境，仅允许示例中列出的必要安装脚本。": "Quoted paths and arguments are supported; shell pipes, variables, redirects and multiple commands are not. The app manages ports, listen addresses and authentication: do not add --port, --host, --token or disable authentication. pnpm uses the app's private runtime and permits only the necessary build scripts listed in the default command.",
+  "端口占用自动检测；被占用时自动选择随机可用端口。": "Automatically detect occupied ports and select a random available port when needed.",
+  "默认使用 npmmirror 国内镜像。启动命令继承此仓库；命令中显式指定的 registry 优先。镜像同步可能延迟，可按需切换仓库。": "Defaults to the China-friendly npmmirror registry. Launch commands inherit this registry unless explicitly overridden. Mirrors may lag behind upstream; change the registry when needed.",
   "本地运行 · 数据独立": "Local · Isolated data",
   "管理你的本地 DSH 工作空间。": "Manage your local DSH workspace.",
   "首次运行自动安装独立环境与 6 个最新版插件，不影响原有 DshShell。":
@@ -35,10 +47,8 @@ const en: Record<string, string> = {
   "自动启动 DSH": "Start DSH automatically",
   "打开应用时自动准备并启动工作空间。":
     "Prepare and start the workspace when the app opens.",
-  留空使用内置托管启动: "Leave blank for the managed runtime",
   "支持带引号的参数，不执行 Shell 管道或变量。端口与认证由外壳管理。":
     "Quoted arguments are supported, not shell pipes or variables. The app manages the port and authentication.",
-  "端口占用时自动避让。": "Automatically avoid occupied ports.",
   "允许 1–120 分钟准备依赖。": "Allow 1–120 minutes to prepare dependencies.",
   "支持 HTTPS 镜像，用于运行环境和插件安装。":
     "HTTPS registry for runtime and plugin installation.",
@@ -67,7 +77,7 @@ const en: Record<string, string> = {
   "让工作，轻装上阵。": "Less shell. More work.",
   "DSH 的完整体验。一个安静、独立、随时可控的桌面入口。":
     "The full DSH experience. A quiet, isolated desktop home that stays in your control.",
-  "连接控制中心…": "Connecting to control center…",
+  "连接设置…": "Connecting to settings…",
   "你的工作空间正在准备。": "Preparing your workspace.",
   "首次运行会安装独立环境和默认插件。已有的 DshShell 不会被修改。":
     "The first launch installs an isolated runtime and default plugins. Your existing DshShell is untouched.",
@@ -157,7 +167,7 @@ const en: Record<string, string> = {
   "保存不会中断服务，启动参数在下次启动时生效。": "Saving keeps your service running. Launch changes take effect on the next start.",
   "已保存，启动参数有待应用。下次启动生效，或点击“应用并重启”。": "Saved changes are pending. They apply on the next start, or choose Apply & restart.",
   "设置已保存，下次启动生效；当前服务未中断。": "Settings saved for the next start. Your current service was not interrupted.",
-  "控制中心连接失败，正在重试。请退出并重新打开应用，仍失败请更新版本。": "Control Center connection failed. Retrying. Quit and reopen the app; update it if the problem persists.",
+  "设置连接失败，正在重试。请退出并重新打开应用，仍失败请更新版本。": "Settings connection failed. Retrying. Quit and reopen the app; update it if the problem persists.",
   连接失败: "Connection failed",
   "选项已改变，请重新选择目录以预览。":
     "Options changed. Choose the directory again to preview.",
@@ -185,7 +195,7 @@ export function setLanguage(choice: string, system: string) {
   appliedLanguage = language;
   document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
   document.title =
-    language === "zh" ? "DSH Tiny · 控制中心" : "DSH Tiny · Control Center";
+    language === "zh" ? "DSH Tiny · 设置" : "DSH Tiny · Settings";
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
     const node = walker.currentNode;
@@ -203,5 +213,5 @@ export function setLanguage(choice: string, system: string) {
   document.getElementById("close-share")?.setAttribute("aria-label", t("关闭"));
   document
     .getElementById("command")
-    ?.setAttribute("placeholder", t("留空使用内置托管启动"));
+    ?.setAttribute("placeholder", t("启动程序及参数"));
 }

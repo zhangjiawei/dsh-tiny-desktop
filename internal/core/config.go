@@ -16,6 +16,9 @@ const Product = "dsh-tiny-desktop"
 const DSHVersion = "0.1.2-rc.1"
 const NodeVersion = "24.20.0"
 const PnpmVersion = "10.28.0"
+const DefaultRegistry = "https://registry.npmmirror.com"
+const DefaultCommand = "pnpm --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=node-pty --allow-build=koffi dlx @deepseek-ai/dsh@" + DSHVersion + " web"
+const ManagedCommand = "dsh web"
 
 type Plugin struct {
 	Name    string `json:"name"`
@@ -48,7 +51,7 @@ type Settings struct {
 }
 
 func Defaults() Settings {
-	return Settings{Port: 3080, LAN: true, TrayOnly: true, HideOnClose: true, AutoStart: true, Language: "system", Registry: "https://registry.npmjs.org", StartupMinutes: 60, Width: 1280, Height: 840}
+	return Settings{Port: 3080, LAN: true, TrayOnly: true, HideOnClose: true, AutoStart: true, Language: "system", Command: DefaultCommand, Registry: DefaultRegistry, StartupMinutes: 60, Width: 1280, Height: 840}
 }
 func (s Settings) Validate() error {
 	if s.Port < 1024 || s.Port > 65535 {
@@ -116,6 +119,12 @@ func (p Paths) LoadSettings() (Settings, error) {
 	}
 	var fields map[string]json.RawMessage
 	_ = json.Unmarshal(b, &fields)
+	// Older releases represented the private managed CLI with an empty command.
+	// Display it explicitly without silently switching an existing installation
+	// to dlx (which may need a first download). New profiles use DefaultCommand.
+	if command, exists := fields["command"]; !exists || string(command) == `""` {
+		s.Command = ManagedCommand
+	}
 	// v0.1 had a hardcoded Chinese default but no language chooser. Upgrade that
 	// implicit default to system; retain an explicitly configured English value.
 	if _, v2 := fields["startupMinutes"]; !v2 && s.Language == "zh" {

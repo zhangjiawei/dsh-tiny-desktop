@@ -198,6 +198,26 @@ p {
   background: #fff0ed;
   color: #b44d34;
 }
+.port-warning {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid #ebc56b;
+  border-left: 4px solid #bd790d;
+  border-radius: 6px;
+  background: #fff6df;
+  color: #80500a;
+  font-weight: 650;
+  font-size: 14px;
+}
+footer .exit-button {
+  display: block;
+  width: 100%;
+  margin-bottom: 18px;
+  text-align: left;
+  color: #9b4138;
+  background: transparent;
+  border-color: #dedfdd;
+}
 code {
   font:
     12px/1.7 "SFMono-Regular",

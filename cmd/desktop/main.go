@@ -17,7 +17,7 @@ import (
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
 )
 
-var version = "0.2.1"
+var version = "0.2.2"
 
 // QA builds may override this via -ldflags to test in an isolated app instance.
 var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
@@ -45,6 +45,8 @@ func main() {
 	}
 	var app *application.App
 	var control, workspace *application.WebviewWindow
+	var iconMu sync.Mutex
+	iconCleanup := func() {}
 	dockIcon := dock.New() // Used from Go only; never exposed to the DSH window.
 	var applyAppearance = func() {}
 	restore := func(w *application.WebviewWindow) {
@@ -74,7 +76,7 @@ func main() {
 		}
 	}
 	app = application.New(application.Options{Name: "DSH Tiny", Description: "An independent desktop home for DeepSeek Harness", Assets: application.AssetOptions{Handler: http.FileServer(http.FS(assets))},
-		Windows:       desktopWindowsOptions(),
+		Windows:        desktopWindowsOptions(),
 		SingleInstance: &application.SingleInstanceOptions{UniqueID: instanceID, OnSecondInstanceLaunch: func(application.SecondInstanceData) { showControl() }},
 		Mac:            application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: false},
 		RawMessageHandler: func(w application.Window, message string, origin *application.OriginInfo) {
@@ -104,6 +106,8 @@ func main() {
 					e = manager.Start()
 				case "stop":
 					manager.Stop()
+				case "quit":
+					result = true // Normal app shutdown stops the owned DSH process tree.
 				case "open":
 					showWorkspace()
 				case "browser":
@@ -190,9 +194,13 @@ func main() {
 				}
 				payload, _ := json.Marshal([]any{request.ID, result, errorText})
 				control.ExecJS("window.tinyReply?.(..." + string(payload) + ")")
+				if request.Action == "quit" {
+					app.Quit()
+				}
 			}()
 		}})
-	control = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "control", Title: "DSH Tiny · 控制中心", Width: 1000, Height: 800, MinWidth: 820, MinHeight: 680, URL: "/", BackgroundColour: application.NewRGB(243, 245, 239)})
+	gear, _ := fs.ReadFile(assets, "settings.png")
+	control = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "control", Title: "DSH Tiny · 设置", Width: 1000, Height: 800, MinWidth: 820, MinHeight: 680, URL: "/", Linux: application.LinuxWindow{Icon: gear}, BackgroundColour: application.NewRGB(245, 246, 245)})
 	// Start at a neutral document, not the wails:// control origin. WKWebView
 	// otherwise withholds DSH's SameSite=Strict cookie on the first redirect.
 	workspace = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "workspace", Title: "DSH Tiny", Width: settings.Width, Height: settings.Height, MinWidth: 760, MinHeight: 540, Hidden: true, AlwaysOnTop: settings.AlwaysOnTop, URL: "about:blank", KeyBindings: map[string]func(application.Window){"CmdOrCtrl+,": func(application.Window) { showControl() }, "CmdOrCtrl+R": func(w application.Window) { w.Reload() }}})
@@ -248,7 +256,7 @@ func main() {
 		}{item, zh, en})
 	}
 	addMenu(menu, "打开工作空间", "Open workspace", func(*application.Context) { showWorkspace() })
-	addMenu(menu, "控制中心 / 设置", "Control center / Settings", func(*application.Context) { showControl() })
+	addMenu(menu, "设置", "Settings", func(*application.Context) { showControl() })
 	menu.AddSeparator()
 	addMenu(menu, "刷新", "Reload", func(*application.Context) { workspace.Reload() })
 	addMenu(menu, "放大", "Zoom in", func(*application.Context) { workspace.ZoomIn() })
@@ -268,7 +276,7 @@ func main() {
 	tray.OnClick(func() { go showWorkspace() }).OnDoubleClick(func() { go showWorkspace() }).OnRightClick(tray.ShowMenu)
 	appMenu := app.NewMenu()
 	appSubmenu := appMenu.AddSubmenu("DSH Tiny")
-	addMenu(appSubmenu, "控制中心", "Control center", func(*application.Context) { showControl() })
+	addMenu(appSubmenu, "设置", "Settings", func(*application.Context) { showControl() })
 	addMenu(appSubmenu, "退出", "Quit", func(*application.Context) { app.Quit() })
 	app.Menu.Set(appMenu)
 	applyAppearance = func() {
@@ -281,9 +289,9 @@ func main() {
 			}
 			entry.item.SetLabel(label)
 		}
-		title := "DSH Tiny · 控制中心"
+		title := "DSH Tiny · 设置"
 		if lang == "en" {
-			title = "DSH Tiny · Control Center"
+			title = "DSH Tiny · Settings"
 		}
 		control.SetTitle(title)
 		workspace.SetAlwaysOnTop(s.Settings.AlwaysOnTop)
@@ -312,6 +320,14 @@ func main() {
 			case <-time.After(time.Second):
 				if !appearanceReady {
 					applyAppearance()
+					cleanup, e := installSettingsIcon(control, assets, p.Root)
+					if e == nil {
+						iconMu.Lock()
+						iconCleanup = cleanup
+						iconMu.Unlock()
+					} else {
+						log.Print(core.Redact(e.Error()))
+					}
 					appearanceReady = true
 				}
 				s := manager.Snapshot()
@@ -328,4 +344,7 @@ func main() {
 	if err = app.Run(); err != nil {
 		log.Fatal(err)
 	}
+	iconMu.Lock()
+	iconCleanup()
+	iconMu.Unlock()
 }

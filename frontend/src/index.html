@@ -7,14 +7,15 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'"
     />
-    <title>DSH Tiny · 控制中心</title>
+    <title>DSH Tiny · 设置</title>
+    <link rel="icon" href="/settings.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
     <aside>
       <a class="brand" href="#overview"
-        ><img src="/icon.svg" alt="" /><span
-          >DSH Tiny<small>控制中心</small></span
+        ><img src="/settings.svg" alt="" /><span
+          >DSH Tiny<small>设置</small></span
         ></a
       >
       <nav aria-label="主导航">
@@ -36,8 +37,9 @@
         >
       </nav>
       <footer>
+        <button id="quit" class="exit-button" type="button">退出应用</button>
         <span class="local-dot"></span><span>本地运行 · 数据独立</span
-        ><small>v0.2.1</small>
+        ><small>v0.2.2</small>
       </footer>
     </aside>
     <main>
@@ -48,7 +50,7 @@
         </div>
         <div class="runtime panel">
           <div class="status-head">
-            <span id="phase" class="badge">连接控制中心…</span
+            <span id="phase" class="badge">连接设置…</span
             ><code id="port">127.0.0.1 : —</code>
           </div>
           <h2 id="headline">你的工作空间正在准备。</h2>
@@ -61,6 +63,7 @@
             ><button id="stop" class="quiet danger">停止服务</button>
           </div>
           <div id="error" role="alert"></div>
+          <div id="port-warning" class="port-warning" role="status" hidden></div>
         </div>
         <h3 class="section-title">快捷操作</h3>
         <div class="utility">
@@ -139,18 +142,17 @@
               <div class="field-heading">
                 <label for="command">自定义启动命令</label
                 ><button type="button" id="command-example" class="text-button">
-                  填入 pnpm dlx 示例
+                  恢复默认命令
                 </button>
               </div>
               <textarea
                 id="command"
                 rows="3"
-                placeholder="留空使用内置托管启动"
+                placeholder="启动程序及参数"
                 spellcheck="false"
               ></textarea
               ><small
-                >支持带引号的参数，不执行 Shell
-                管道或变量。端口与认证由外壳管理。</small
+                >支持带引号的路径和参数；不支持 Shell 管道、变量、重定向或多条命令。端口、监听地址和认证由应用管理，请勿填写 --port、--host、--token 或关闭认证的参数。pnpm 使用应用内置环境，仅允许示例中列出的必要安装脚本。</small
               >
             </div>
             <div class="field-grid">
@@ -162,7 +164,7 @@
                   min="1024"
                   max="65535"
                   value="3080"
-                /><small>端口占用时自动避让。</small>
+                /><small>端口占用自动检测；被占用时自动选择随机可用端口。</small>
               </div>
               <div class="field">
                 <label for="startup-minutes">启动等待时间（分钟）</label
@@ -176,12 +178,12 @@
               </div>
             </div>
             <div class="field">
-              <label for="registry">npm / pnpm 仓库</label
-              ><input
+              <div class="field-heading"><label for="registry">npm / pnpm 仓库</label><button type="button" id="registry-default" class="text-button">恢复默认仓库</button></div>
+              <input
                 id="registry"
                 type="url"
-                placeholder="https://registry.npmjs.org"
-              /><small>支持 HTTPS 镜像，用于运行环境和插件安装。</small>
+                placeholder="https://registry.npmmirror.com"
+              /><small>默认使用 npmmirror 国内镜像。启动命令继承此仓库；命令中显式指定的 registry 优先。镜像同步可能延迟，可按需切换仓库。</small>
             </div>
             <div class="field">
               <label for="proxy">HTTP(S) 代理</label
@@ -253,6 +255,11 @@
       </p>
       <canvas id="qr"></canvas
       ><button id="dialog-copy" class="primary">复制认证链接</button>
+    </dialog>
+    <dialog id="quit-dialog" aria-labelledby="quit-title">
+      <h2 id="quit-title">退出 DSH Tiny？</h2>
+      <p>退出将停止 DSH 服务，正在运行的任务可能中断。关闭窗口则可继续在托盘运行。</p>
+      <div class="actions"><button id="cancel-quit">取消</button><button id="confirm-quit" class="danger">确认退出</button></div>
     </dialog>
     <script type="module" src="/main.js"></script>
   </body>

@@ -14,7 +14,7 @@ import (
 func main() {
 	root := flag.String("root", "", "isolated test directory (required)")
 	lan := flag.Bool("lan", false, "also verify opt-in LAN authentication")
-	command := flag.String("command", "", "custom launch command to exercise")
+	command := flag.String("command", core.DefaultCommand, "launch command to exercise (defaults to production pnpm command)")
 	flag.Parse()
 	if *root == "" {
 		fmt.Fprintln(os.Stderr, "--root is required")

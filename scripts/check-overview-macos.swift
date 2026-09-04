@@ -29,7 +29,7 @@ let root = AXUIElementCreateApplication(pid)
 guard
   let w = (attr(root, "AXWindows") as? [AXUIElement] ?? []).first(where: {
     let title = attr($0, "AXTitle") as? String ?? ""
-    return title.contains("控制中心") || title.contains("Control Center")
+    return title.contains("设置") || title.contains("Settings")
   })
 else {
   print("FAIL: no control window")

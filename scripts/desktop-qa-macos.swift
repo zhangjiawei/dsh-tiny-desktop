@@ -60,7 +60,7 @@ func pressTray(_ item: AXUIElement) -> Bool {
 }
 let app = AXUIElementCreateApplication(pid)
 let windows = attr(app, "AXWindows") as? [AXUIElement] ?? []
-let control = windows.first { title($0).contains("控制中心") || title($0).contains("Control Center") }
+let control = windows.first { title($0).contains("设置") || title($0).contains("Settings") }
 if action == "tray-cycle" {
   func expect(_ condition: Bool, _ message: String) {
     if !condition {
@@ -145,7 +145,7 @@ if action == "state" {
   for w in windows {
     print(
       "WINDOW",
-      title(w).contains("控制中心") || title(w).contains("Control Center") ? "control" : "workspace",
+      title(w).contains("设置") || title(w).contains("Settings") ? "control" : "workspace",
       "MINIMIZED", attr(w, "AXMinimized") ?? "unknown" as AnyObject)
   }
   exit(0)
@@ -163,7 +163,7 @@ if action == "control" || action == "assert-menu" {
   guard
     let item = nodes(bar as! AXUIElement).first(where: {
       (attr($0, "AXRole") as? String) == "AXMenuItem"
-        && ["Control center", "控制中心"].contains(title($0))
+        && ["Settings", "设置"].contains(title($0))
     })
   else {
     print("FAIL: control menu missing")

@@ -83,6 +83,9 @@ func (i *Installer) launchCommand(r Runtime) (string, []string, error) {
 	args = args[1:]
 	// Execute package-manager JS directly so pnpm works on Windows without cmd.exe.
 	switch strings.ToLower(name) {
+	case "dsh", "dsh.cmd":
+		// Explicit spelling of the legacy managed launch; never use a global dsh.
+		return r.Node, append([]string{r.CLI}, args...), nil
 	case "node", "node.exe":
 		return r.Node, args, nil
 	case "pnpm", "pnpm.cmd":

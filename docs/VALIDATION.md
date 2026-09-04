@@ -1,5 +1,12 @@
 # 验证记录
 
+## v0.2.2 设置功能验证（进行中）
+
+- 新增回归覆盖默认仓库/启动命令、旧版空命令兼容、私有 CLI 路由、真实端口占用及活动配置与待应用配置的区分。核心测试、race/vet、前端测试和 TypeScript 构建通过；Windows 桌面包本地交叉编译通过，不等同于 Windows 原生执行。
+- 视觉预览在 1000×800、820×680 检查齿轮标识、侧栏退出按钮、长命令/限制、仓库默认值、端口提示和英文确认退出弹窗；无横向溢出。预览使用隔离模拟 bridge，仅用于布局，不计作原生功能通过。
+- Windows CI 新增真实占用 3080 后验证随机服务端口/提示、恢复并使用默认命令及镜像、待应用设置不篡改活动端口提示、取消退出保持服务、确认退出并释放服务端口；正式 exe 另由 UIA 验证 Settings 标题与原生大小图标句柄。
+- 六平台首装 smoke 改为实际生产默认 pnpm 命令及国内镜像。最终 CI、原生 Mac 和发布结果将在验证后补充；当前不能把新增 Windows 用例视为已通过。
+
 ## v0.2.1 修复验证
 
 - 根因回放：使用 Wails beta.16 Windows `processMessage` 实際字段（Origin/TopOrigin，IsMainFrame=false）运行 `go test ./internal/core -run TestWindowsControlStatusMessage -count=1`，修复前失败，修复后通过。旧版六平台 DSH smoke 没有覆盖原生窗口桥，这是 v0.2.0 漏检原因。

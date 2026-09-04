@@ -22,6 +22,9 @@ type Snapshot struct {
 	SystemLanguage  string    `json:"systemLanguage"`
 	RestartRequired bool      `json:"restartRequired"`
 	LANActive       bool      `json:"lanActive"`
+	PortChanged     bool      `json:"portChanged"`
+	PreferredPort   int       `json:"preferredPort"`
+	Defaults        Settings  `json:"defaults"`
 }
 type Manager struct {
 	mu                       sync.Mutex
@@ -53,7 +56,9 @@ func (m *Manager) Snapshot() Snapshot {
 	return Snapshot{Phase: m.phase, Error: m.lastError, Port: m.port, Data: m.paths.Data,
 		Logs: m.log.Lines(), Settings: m.settings, SystemLanguage: m.systemLanguage,
 		RestartRequired: m.cancel != nil && !sameLaunchSettings(m.settings, m.activeSettings),
-		LANActive:       m.phase == "running" && m.lanIP != ""}
+		LANActive:       m.phase == "running" && m.lanIP != "",
+		PortChanged:     m.phase == "running" && m.port != m.activeSettings.Port,
+		PreferredPort:   m.activeSettings.Port, Defaults: Defaults()}
 }
 
 // Appearance and next-app-launch preferences do not alter a running DSH child.
