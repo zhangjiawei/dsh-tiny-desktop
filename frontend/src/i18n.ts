@@ -1,58 +1,149 @@
 // Keep translation at the shell boundary. Never rewrite or inject the DSH DOM.
 export let language = "en";
-const en: Record<string,string> = {
-"填入 pnpm dlx 示例":"Use pnpm dlx example","示例仅允许 DSH subprocess、node-pty、koffi 的必要安装脚本；不要使用全部放行选项。":"The example allows only the required DSH subprocess, node-pty and koffi scripts. Never approve all dependency scripts.",
-"概览":"Overview","运行设置":"Settings","数据迁移":"Import data","运行日志":"Logs",
-"小巧外壳，完整能力。":"Tiny shell. Full capability.","让工作，轻装上阵。":"Less shell. More work.",
-"DSH 的完整体验。一个安静、独立、随时可控的桌面入口。":"The full DSH experience. A quiet, isolated desktop home that stays in your control.",
-"连接控制中心…":"Connecting to control center…","你的工作空间正在准备。":"Preparing your workspace.",
-"首次运行会安装独立环境和默认插件。已有的 DshShell 不会被修改。":"The first launch installs an isolated runtime and default plugins. Your existing DshShell is untouched.",
-"启动工作空间 ↗":"Start workspace ↗","打开窗口":"Open window","停止服务":"Stop service",
-"↗ 在浏览器中打开":"↗ Open in browser","⧉ 复制认证链接":"⧉ Copy authenticated link","▦ 分享二维码":"▦ Share QR code","↓ 检查更新":"↓ Check for updates",
-"开箱即用":"Ready to use","6 个默认插件":"6 default plugins","任务完成通知":"Task notifications",
-"保持简单，也留有余地。":"Simple. With room to adapt.","外观设置立即生效；运行设置可保存或应用并重启。":"Appearance changes apply immediately. Save runtime settings while stopped, or apply and restart.",
-"语言":"Language","跟随系统":"Follow system","简体中文":"简体中文",
-"默认跟随系统语言。仅控制桌面外壳，DSH 工作空间语言由其自身设置管理。":"Follows the system by default. This controls the desktop shell; the DSH workspace has its own language settings.",
-"最小化或关闭时从 Dock / 任务栏隐藏":"Hide from Dock / taskbar when minimized or closed",
-"开启后仅保留菜单栏 / 系统托盘图标。单击恢复窗口，右键打开菜单；不会停止 DSH。":"Keep only the menu bar / system tray icon. Click to restore; right-click for the menu. DSH keeps running.",
-"自定义启动命令":"Custom launch command","留空使用内置托管启动。支持带引号的参数，不支持 Shell 管道或变量。端口、--no-open 和认证由外壳管理。":"Leave blank for the managed runtime. Quoted arguments are supported, not shell pipes or variables. The shell manages the port, --no-open and authentication.",
-"插件安装策略":"Plugin installation policy","已验证的固定版本（推荐）":"Verified pinned versions (recommended)","安装时解析最新版":"Resolve latest versions when installing",
-"最新版会记录具体版本，普通重启不自动升级。切换策略后应用并重启。":"Resolved versions are recorded; normal restarts never silently upgrade. Apply and restart after changing the policy.",
-"npm / pnpm 仓库":"npm / pnpm registry","用于运行环境包和插件安装，可配置 HTTPS 镜像；自定义命令中的仓库参数优先。":"HTTPS registry for runtime packages and plugins. Registry arguments in a custom command take precedence.",
-"启动等待时间（分钟）":"Startup timeout (minutes)","用于等待自定义命令下载依赖并启动服务，范围 1–120 分钟。":"Allow 1–120 minutes for a custom command to download dependencies and start the server.",
-"首选端口":"Preferred port","端口被占用时自动选择空闲端口，不会终止其他应用。":"Automatically selects a free port when occupied. Other applications are never terminated.",
-"HTTP(S) 代理":"HTTP(S) proxy","仅用于本应用的安装和 DSH 子进程；不修改系统代理。":"Used only for this app's installation and DSH child process, not the system proxy.",
-"打开应用后自动启动 DSH":"Start DSH when the app opens","关闭窗口时隐藏到托盘":"Keep running when the workspace window closes","DSH 窗口始终置顶":"Keep the DSH window on top",
-"启用局域网分享（链接持有者拥有完整访问权限）":"Enable LAN sharing (link holders have full access)","默认关闭。仅在可信私有网络使用；HTTP 流量未加密，不适合公共 Wi-Fi 或公网。":"Off by default. Trusted private networks only: HTTP traffic is unencrypted. Not for public Wi-Fi or the internet.",
-"保存设置":"Save settings","应用并重启":"Apply and restart","迁入，而不是覆盖。":"Move in. Never overwrite.",
-"只读原目录，复制到本应用的独立数据空间。请先退出原 DSH，确保源数据不再变化。":"Copy the source read-only into an isolated data space. Exit the original DSH first so its data stops changing.",
-"当前独立数据目录":"Current isolated data directory","导入会复制会话、附件、技能和设置；不复制插件代码、缓存或运行锁。现有独立数据会自动备份。":"Import sessions, attachments, skills and settings, not plugin code, caches or locks. Existing isolated data is backed up automatically.",
-"同时复制凭据（API Key 等敏感配置）":"Also copy credentials (API keys and other secrets)","选择原 DSH 数据目录…":"Choose original DSH data directory…","确认导入":"Confirm import","恢复此次导入前的备份":"Restore the backup from before this import",
-"状态，始终看得见。":"Always know what's happening.","最近 500 行运行输出，认证链接和常见敏感字段自动脱敏。":"The latest 500 log lines. Authenticated links and common secret fields are redacted.",
-"同一台电脑，换个浏览器。":"Same computer. Another browser.","在可信局域网内继续。":"Continue on a trusted private network.",
-"此链接包含完整访问凭证，请勿公开。当前为仅本机地址，手机无法访问。":"This link grants full access. Do not publish it. The local-only address cannot be opened on a phone.",
-"此链接包含完整访问权限。仅限可信私有网络；HTTP 未加密，请勿公开或转发给不可信的人。":"This link grants full access. Trusted private networks only; HTTP is unencrypted. Never publish or share with untrusted people.",
-"复制认证链接":"Copy authenticated link","关闭":"Close","已停止":"Stopped","准备运行环境":"Preparing runtime","启动与认证中":"Starting and authenticating","运行中":"Running","需要处理":"Needs attention",
-"一切就绪，开始你的下一步。":"Ready for your next move.","遇到了一点问题。":"Something needs your attention.","你的工作空间，随时待命。":"Your workspace is on standby.","首次准备，需要一点时间。":"First-time setup takes a moment.",
-"操作仍在处理中，请查看日志":"The operation is still running. Check the logs.","认证链接已复制，请勿公开分享":"Authenticated link copied. Do not share publicly.","已打开本项目的 GitHub Releases":"Opened this project's GitHub Releases.","设置已保存":"Settings saved.","选项已改变，请重新选择目录以预览。":"Options changed. Choose the directory again to preview.","导入完成。启动后将重建独立插件环境。":"Import complete. The isolated plugin environment will be rebuilt on startup.","已恢复备份":"Backup restored.","已打开工作空间":"Workspace opened.","已在默认浏览器中打开":"Opened in the default browser.","正在应用设置并重启":"Applying settings and restarting…"
+const en: Record<string, string> = {
+  "填入 pnpm dlx 示例": "Use pnpm dlx example",
+  "示例仅允许 DSH subprocess、node-pty、koffi 的必要安装脚本；不要使用全部放行选项。":
+    "The example allows only the required DSH subprocess, node-pty and koffi scripts. Never approve all dependency scripts.",
+  概览: "Overview",
+  运行设置: "Settings",
+  数据迁移: "Import data",
+  运行日志: "Logs",
+  "小巧外壳，完整能力。": "Tiny shell. Full capability.",
+  "让工作，轻装上阵。": "Less shell. More work.",
+  "DSH 的完整体验。一个安静、独立、随时可控的桌面入口。":
+    "The full DSH experience. A quiet, isolated desktop home that stays in your control.",
+  "连接控制中心…": "Connecting to control center…",
+  "你的工作空间正在准备。": "Preparing your workspace.",
+  "首次运行会安装独立环境和默认插件。已有的 DshShell 不会被修改。":
+    "The first launch installs an isolated runtime and default plugins. Your existing DshShell is untouched.",
+  "启动工作空间 ↗": "Start workspace ↗",
+  打开窗口: "Open window",
+  停止服务: "Stop service",
+  "↗ 在浏览器中打开": "↗ Open in browser",
+  "⧉ 复制认证链接": "⧉ Copy authenticated link",
+  "▦ 分享二维码": "▦ Share QR code",
+  "↓ 检查更新": "↓ Check for updates",
+  开箱即用: "Ready to use",
+  "6 个默认插件": "6 default plugins",
+  任务完成通知: "Task notifications",
+  "保持简单，也留有余地。": "Simple. With room to adapt.",
+  "外观设置立即生效；运行设置可保存或应用并重启。":
+    "Appearance changes apply immediately. Save runtime settings while stopped, or apply and restart.",
+  语言: "Language",
+  跟随系统: "Follow system",
+  简体中文: "简体中文",
+  "默认跟随系统语言。仅控制桌面外壳，DSH 工作空间语言由其自身设置管理。":
+    "Follows the system by default. This controls the desktop shell; the DSH workspace has its own language settings.",
+  "最小化或关闭时从 Dock / 任务栏隐藏":
+    "Hide from Dock / taskbar when minimized or closed",
+  "开启后仅保留菜单栏 / 系统托盘图标。单击恢复窗口，右键打开菜单；不会停止 DSH。":
+    "Keep only the menu bar / system tray icon. Click to restore; right-click for the menu. DSH keeps running.",
+  自定义启动命令: "Custom launch command",
+  "留空使用内置托管启动。支持带引号的参数，不支持 Shell 管道或变量。端口、--no-open 和认证由外壳管理。":
+    "Leave blank for the managed runtime. Quoted arguments are supported, not shell pipes or variables. The shell manages the port, --no-open and authentication.",
+  插件安装策略: "Plugin installation policy",
+  "已验证的固定版本（推荐）": "Verified pinned versions (recommended)",
+  安装时解析最新版: "Resolve latest versions when installing",
+  "最新版会记录具体版本，普通重启不自动升级。切换策略后应用并重启。":
+    "Resolved versions are recorded; normal restarts never silently upgrade. Apply and restart after changing the policy.",
+  "npm / pnpm 仓库": "npm / pnpm registry",
+  "用于运行环境包和插件安装，可配置 HTTPS 镜像；自定义命令中的仓库参数优先。":
+    "HTTPS registry for runtime packages and plugins. Registry arguments in a custom command take precedence.",
+  "启动等待时间（分钟）": "Startup timeout (minutes)",
+  "用于等待自定义命令下载依赖并启动服务，范围 1–120 分钟。":
+    "Allow 1–120 minutes for a custom command to download dependencies and start the server.",
+  首选端口: "Preferred port",
+  "端口被占用时自动选择空闲端口，不会终止其他应用。":
+    "Automatically selects a free port when occupied. Other applications are never terminated.",
+  "HTTP(S) 代理": "HTTP(S) proxy",
+  "仅用于本应用的安装和 DSH 子进程；不修改系统代理。":
+    "Used only for this app's installation and DSH child process, not the system proxy.",
+  "打开应用后自动启动 DSH": "Start DSH when the app opens",
+  关闭窗口时隐藏到托盘: "Keep running when the workspace window closes",
+  "DSH 窗口始终置顶": "Keep the DSH window on top",
+  "启用局域网分享（链接持有者拥有完整访问权限）":
+    "Enable LAN sharing (link holders have full access)",
+  "默认关闭。仅在可信私有网络使用；HTTP 流量未加密，不适合公共 Wi-Fi 或公网。":
+    "Off by default. Trusted private networks only: HTTP traffic is unencrypted. Not for public Wi-Fi or the internet.",
+  保存设置: "Save settings",
+  应用并重启: "Apply and restart",
+  "迁入，而不是覆盖。": "Move in. Never overwrite.",
+  "只读原目录，复制到本应用的独立数据空间。请先退出原 DSH，确保源数据不再变化。":
+    "Copy the source read-only into an isolated data space. Exit the original DSH first so its data stops changing.",
+  当前独立数据目录: "Current isolated data directory",
+  "导入会复制会话、附件、技能和设置；不复制插件代码、缓存或运行锁。现有独立数据会自动备份。":
+    "Import sessions, attachments, skills and settings, not plugin code, caches or locks. Existing isolated data is backed up automatically.",
+  "同时复制凭据（API Key 等敏感配置）":
+    "Also copy credentials (API keys and other secrets)",
+  "选择原 DSH 数据目录…": "Choose original DSH data directory…",
+  确认导入: "Confirm import",
+  恢复此次导入前的备份: "Restore the backup from before this import",
+  "状态，始终看得见。": "Always know what's happening.",
+  "最近 500 行运行输出，认证链接和常见敏感字段自动脱敏。":
+    "The latest 500 log lines. Authenticated links and common secret fields are redacted.",
+  "同一台电脑，换个浏览器。": "Same computer. Another browser.",
+  "在可信局域网内继续。": "Continue on a trusted private network.",
+  "此链接包含完整访问凭证，请勿公开。当前为仅本机地址，手机无法访问。":
+    "This link grants full access. Do not publish it. The local-only address cannot be opened on a phone.",
+  "此链接包含完整访问权限。仅限可信私有网络；HTTP 未加密，请勿公开或转发给不可信的人。":
+    "This link grants full access. Trusted private networks only; HTTP is unencrypted. Never publish or share with untrusted people.",
+  复制认证链接: "Copy authenticated link",
+  关闭: "Close",
+  已停止: "Stopped",
+  准备运行环境: "Preparing runtime",
+  启动与认证中: "Starting and authenticating",
+  运行中: "Running",
+  需要处理: "Needs attention",
+  "一切就绪，开始你的下一步。": "Ready for your next move.",
+  "遇到了一点问题。": "Something needs your attention.",
+  "你的工作空间，随时待命。": "Your workspace is on standby.",
+  "首次准备，需要一点时间。": "First-time setup takes a moment.",
+  "操作仍在处理中，请查看日志":
+    "The operation is still running. Check the logs.",
+  "认证链接已复制，请勿公开分享":
+    "Authenticated link copied. Do not share publicly.",
+  "已打开本项目的 GitHub Releases": "Opened this project's GitHub Releases.",
+  设置已保存: "Settings saved.",
+  "选项已改变，请重新选择目录以预览。":
+    "Options changed. Choose the directory again to preview.",
+  "导入完成。启动后将重建独立插件环境。":
+    "Import complete. The isolated plugin environment will be rebuilt on startup.",
+  已恢复备份: "Backup restored.",
+  已打开工作空间: "Workspace opened.",
+  已在默认浏览器中打开: "Opened in the default browser.",
+  正在应用设置并重启: "Applying settings and restarting…",
 };
-export function t(text:string){return language==="en" ? en[text]||text : text}
-const originals=new WeakMap<Node,string>();
-let appliedLanguage="";
-export function setLanguage(choice:string,system:string){
- language=(choice==="system"?(system||navigator.language):choice).toLowerCase().startsWith("zh")?"zh":"en";
- // Rewriting option text every status tick can dismiss native WebKit pickers
- // and invalidate accessibility nodes while the user is interacting with them.
- if(appliedLanguage===language)return;
- appliedLanguage=language;
- document.documentElement.lang=language==="zh"?"zh-CN":"en";
- document.title=language==="zh"?"DSH Tiny · 控制中心":"DSH Tiny · Control Center";
- const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
- while(walker.nextNode()){
-  const node=walker.currentNode;
-  if(node.parentElement?.closest("#phase,#headline,#error,#log-output,#notice,#preview,#data-path,#port,#share-title,#share-warning"))continue;
-  if(!originals.has(node))originals.set(node,(node.textContent||"").replace(/\s+/g," ").trim());
-  const original=originals.get(node)!;if(en[original])node.textContent=t(original);
- }
- document.getElementById("close-share")?.setAttribute("aria-label",t("关闭"));
+export function t(text: string) {
+  return language === "en" ? en[text] || text : text;
+}
+const originals = new WeakMap<Node, string>();
+let appliedLanguage = "";
+export function setLanguage(choice: string, system: string) {
+  language = (choice === "system" ? system || navigator.language : choice)
+    .toLowerCase()
+    .startsWith("zh")
+    ? "zh"
+    : "en";
+  // Rewriting option text every status tick can dismiss native WebKit pickers
+  // and invalidate accessibility nodes while the user is interacting with them.
+  if (appliedLanguage === language) return;
+  appliedLanguage = language;
+  document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+  document.title =
+    language === "zh" ? "DSH Tiny · 控制中心" : "DSH Tiny · Control Center";
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (
+      node.parentElement?.closest(
+        "#phase,#headline,#error,#log-output,#notice,#preview,#data-path,#port,#share-title,#share-warning",
+      )
+    )
+      continue;
+    if (!originals.has(node))
+      originals.set(node, (node.textContent || "").replace(/\s+/g, " ").trim());
+    const original = originals.get(node)!;
+    if (en[original]) node.textContent = t(original);
+  }
+  document.getElementById("close-share")?.setAttribute("aria-label", t("关闭"));
 }

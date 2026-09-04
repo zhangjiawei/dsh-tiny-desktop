@@ -1,0 +1,4 @@
+# Go writes module metadata with LF on every platform. Keep Windows checkouts
+# consistent so `go mod tidy -diff` detects dependency changes, not CRLF noise.
+go.mod text eol=lf
+go.sum text eol=lf
