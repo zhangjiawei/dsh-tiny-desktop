@@ -8,9 +8,17 @@
 - 新安装开关默认值及保留已有 false 选择的回归通过。`Log.Lines()` 空列表可序列化为 []，不是 Windows 空白页的根因。
 - 本地 `go test ./...`、核心 race/vet、模块完整性、前端测试、TypeScript 构建通过。Mac QA 实测：服务 PID 55052 / 端口 57968 上保存首选端口 43082 后原 PID/端口不变、设置文件持久化、界面显示待应用；点击“应用并重启”后原进程退出，新 PID 55315 在 43082 认证就绪。托盘最小化/关闭/恢复回归通过。所有 QA 进程已正常退出，测试目录设置恢复 3080。
 - Windows 验证新增两层：正式打包 exe 由 `windows-control-ready.ps1` 的 UIA 验证真实后台 Stopped 状态；同源码仅通过链接期端口参数构建的 QA exe 由 `windows-webview-smoke.mjs` 操作实际 WebView2/DSH，不模拟 bridge。正式包默认不提供调试端口，环境变量不能启用该编译期选项。
-- 第一轮 Windows x64 的真实 DSH/六插件/PTY 均通过，但原生探针超时。原因是 Wails 内部 `preventEnvAndRegistryOverrides` 清空了 SDK 调试环境变量；已改为上述 UIA + 编译期 QA 探针，不将这次探针失败算作原生验证成功。最终 Windows 结果将在运行完成后补录。
+- 第一轮 Windows x64 的真实 DSH/六插件/PTY 均通过，但原生探针超时。原因是 Wails 内部 `preventEnvAndRegistryOverrides` 清空了 SDK 调试环境变量；已改为上述 UIA + 编译期 QA 探针，不将这次探针失败算作原生验证成功。最终标签结果见下方。
 - 第二轮 [Windows x64 原生验证](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33890667333/job/101081634854) 于 2026-09-04 23:43:36（UTC+8）通过：正式 exe UIA 状态；QA WebView2 初始空日志/独立目录；真实启动按钮、认证就绪、端口/日志；保存新端口时当前服务不变；打开窗口、QR、停止、下次启动应用新端口。全部步骤通过后才上传构建产物。
 - 同轮 [Windows ARM64 原生验证](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33890667333/job/101081635148) 的原生控制桥与产物上传步骤也通过。首次安装耗时约 4 分 53 秒，实时日志确认下载安装在推进，随后真实 pnpm dlx/PTY 通过；并非界面连接死锁。
+
+### v0.2.1 发布闭环（2026-09-05，UTC+8）
+
+最终标签 `v0.2.1`（`d9ce446`）的 [发布工作流](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33891692956) 六个平台及 release job 全部成功。该轮包括 `go test ./...` 的正式包调试边界回归，Windows QA 构建显式固定对应 GOARCH，两个 Windows runner 再次完成正式 exe UIA 与真实 WebView2 全流程验证。
+
+[v0.2.1 Release](https://github.com/zhangjiawei/dsh-tiny-desktop/releases/tag/v0.2.1) 已公开且为预发布，含六个安装包和 SHA256SUMS.txt。发布后从公开链接重新下载六包，全部文件大小及 SHA-256 匹配；解压确认 PE GUI x86-64/Aarch64、Mach-O x86_64/arm64、ELF x86-64/aarch64 与名称匹配。两个 macOS 包通过 `codesign --verify --deep --strict`，仅代表 ad-hoc 完整性，不代表 Apple 公证。Windows 仍未商业签名。
+
+用户升级应从托盘菜单真正退出旧版，再解压新版运行；不删除独立数据目录，不重装已完成安装的六插件。已有开关选择保留，新安装采用新默认值。本轮没有替换原 DshShell，也没有改动原 `~/.dsh`。
 
 ## v0.2.0 本地验证（2026-09-04，macOS Intel）
 
