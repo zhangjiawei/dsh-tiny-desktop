@@ -32,19 +32,24 @@ var Plugins = []Plugin{
 }
 
 type Settings struct {
-	Port        int    `json:"port"`
-	Proxy       string `json:"proxy"`
-	LAN         bool   `json:"lan"`
-	HideOnClose bool   `json:"hideOnClose"`
-	AutoStart   bool   `json:"autoStart"`
-	AlwaysOnTop bool   `json:"alwaysOnTop"`
-	Language    string `json:"language"`
-	Width       int    `json:"width"`
-	Height      int    `json:"height"`
+	Port           int    `json:"port"`
+	Proxy          string `json:"proxy"`
+	LAN            bool   `json:"lan"`
+	HideOnClose    bool   `json:"hideOnClose"`
+	TrayOnly       bool   `json:"trayOnly"`
+	AutoStart      bool   `json:"autoStart"`
+	AlwaysOnTop    bool   `json:"alwaysOnTop"`
+	Language       string `json:"language"`
+	Command        string `json:"command"`
+	PluginPolicy   string `json:"pluginPolicy"`
+	Registry       string `json:"registry"`
+	StartupMinutes int    `json:"startupMinutes"`
+	Width          int    `json:"width"`
+	Height         int    `json:"height"`
 }
 
 func Defaults() Settings {
-	return Settings{Port: 3080, HideOnClose: true, AutoStart: true, Language: "zh", Width: 1280, Height: 840}
+	return Settings{Port: 3080, HideOnClose: true, AutoStart: true, Language: "system", PluginPolicy: "pinned", Registry: "https://registry.npmjs.org", StartupMinutes: 60, Width: 1280, Height: 840}
 }
 func (s Settings) Validate() error {
 	if s.Port < 1024 || s.Port > 65535 {
@@ -53,8 +58,21 @@ func (s Settings) Validate() error {
 	if s.Width < 760 || s.Height < 540 || s.Width > 10000 || s.Height > 10000 {
 		return errors.New("窗口尺寸超出允许范围")
 	}
-	if s.Language != "zh" && s.Language != "en" {
+	if s.Language != "system" && s.Language != "zh" && s.Language != "en" {
 		return errors.New("不支持的语言")
+	}
+	if s.PluginPolicy != "pinned" && s.PluginPolicy != "latest" {
+		return errors.New("插件策略必须为 pinned 或 latest")
+	}
+	u, err := url.Parse(s.Registry)
+	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return errors.New("包仓库必须为不含凭据的 HTTPS 地址")
+	}
+	if s.StartupMinutes < 1 || s.StartupMinutes > 120 {
+		return errors.New("启动等待时间必须在 1–120 分钟之间")
+	}
+	if _, err := ParseCommand(s.Command); err != nil {
+		return err
 	}
 	if s.Proxy != "" {
 		u, err := url.Parse(s.Proxy)
@@ -99,6 +117,13 @@ func (p Paths) LoadSettings() (Settings, error) {
 	}
 	if err = json.Unmarshal(b, &s); err != nil {
 		return s, fmt.Errorf("设置文件损坏，未覆盖原文件: %w", err)
+	}
+	var fields map[string]json.RawMessage
+	_ = json.Unmarshal(b, &fields)
+	// v0.1 had a hardcoded Chinese default but no language chooser. Upgrade that
+	// implicit default to system; retain an explicitly configured English value.
+	if _, v2 := fields["pluginPolicy"]; !v2 && s.Language == "zh" {
+		s.Language = "system"
 	}
 	return s, s.Validate()
 }

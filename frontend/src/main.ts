@@ -4,14 +4,20 @@
 import { System } from "/wails/runtime.js";
 // @ts-ignore QRCode is a vetted, pinned browser dependency
 import QRCode from "qrcode";
+import {t,setLanguage,language} from "./i18n";
 type Settings = {
   port: number;
   proxy: string;
   lan: boolean;
   hideOnClose: boolean;
+  trayOnly: boolean;
   autoStart: boolean;
   alwaysOnTop: boolean;
   language: string;
+  command: string;
+  pluginPolicy: string;
+  registry: string;
+  startupMinutes: number;
   width: number;
   height: number;
 };
@@ -22,6 +28,7 @@ type State = {
   data: string;
   logs: { time: string; text: string }[];
   settings: Settings;
+  systemLanguage: string;
 };
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
@@ -46,13 +53,13 @@ function call(action: string, data: unknown = {}): Promise<any> {
     pending.set(id, { resolve, reject });
     System.invoke(JSON.stringify({ id, action, data }));
     setTimeout(() => {
-      if (pending.delete(id)) reject(new Error("操作仍在处理中，请查看日志"));
+      if (pending.delete(id)) reject(new Error(t("操作仍在处理中，请查看日志")));
     }, 120000);
   });
 }
 let noticeTimer: ReturnType<typeof setTimeout>;
 function notice(message: string) {
-  $("notice").textContent = message;
+  $("notice").textContent = t(message);
   $("notice").style.display = "block";
   clearTimeout(noticeTimer);
   noticeTimer = setTimeout(() => ($("notice").style.display = "none"), 6000);
@@ -71,17 +78,18 @@ const labels: Record<string, string> = {
 };
 function render(s: State) {
   state = s;
-  $("phase").textContent = labels[s.phase] || s.phase;
+  setLanguage(s.settings.language,s.systemLanguage);
+  $("phase").textContent = t(labels[s.phase] || s.phase);
   $("phase").className = "badge " + s.phase;
   $("port").textContent = `127.0.0.1 : ${s.port || "—"}`;
-  $("headline").textContent =
+  $("headline").textContent = t(
     s.phase === "running"
       ? "一切就绪，开始你的下一步。"
       : s.phase === "error"
         ? "遇到了一点问题。"
         : s.phase === "stopped"
           ? "你的工作空间，随时待命。"
-          : "首次准备，需要一点时间。";
+          : "首次准备，需要一点时间。");
   $("error").textContent = s.error;
   $("data-path").textContent = s.data;
   $("log-output").textContent = s.logs
@@ -100,6 +108,12 @@ function render(s: State) {
     $<HTMLInputElement>("hide").checked = s.settings.hideOnClose;
     $<HTMLInputElement>("ontop").checked = s.settings.alwaysOnTop;
     $<HTMLInputElement>("lan").checked = s.settings.lan;
+    $<HTMLInputElement>("tray-only").checked=s.settings.trayOnly;
+    $<HTMLSelectElement>("language").value=s.settings.language;
+    $<HTMLInputElement>("command").value=s.settings.command;
+    $<HTMLSelectElement>("plugin-policy").value=s.settings.pluginPolicy;
+    $<HTMLInputElement>("registry").value=s.settings.registry;
+    $<HTMLInputElement>("startup-minutes").value=String(s.settings.startupMinutes);
   }
 }
 function route() {
@@ -115,8 +129,8 @@ window.addEventListener("hashchange", route);
 route();
 action("start", () => call("start"));
 action("stop", () => call("stop"));
-action("open", () => call("open"));
-action("browser", () => call("browser"));
+action("open", async () => {await call("open");notice("已打开工作空间")});
+action("browser", async () => {await call("browser");notice("已在默认浏览器中打开")});
 action("copy", async () => {
   await call("copy");
   notice("认证链接已复制，请勿公开分享");
@@ -129,8 +143,8 @@ action("updates", async () => {
 action("share", async () => {
   const url = await call("share");
   const lan=state?.settings.lan;
-  $("share-title").textContent=lan?"在可信局域网内继续。":"同一台电脑，换个浏览器。";
-  $("share-warning").textContent=lan?"此链接包含完整访问权限。仅限可信私有网络；HTTP 未加密，请勿公开或转发给不可信的人。":"此链接包含完整访问凭证，请勿公开。当前为仅本机地址，手机无法访问。";
+  $("share-title").textContent=t(lan?"在可信局域网内继续。":"同一台电脑，换个浏览器。");
+  $("share-warning").textContent=t(lan?"此链接包含完整访问权限。仅限可信私有网络；HTTP 未加密，请勿公开或转发给不可信的人。":"此链接包含完整访问凭证，请勿公开。当前为仅本机地址，手机无法访问。");
   await QRCode.toCanvas($("qr"), url, {
     width: 250,
     margin: 2,
@@ -143,22 +157,35 @@ $("close-share").onclick = () => {
   const c = $<HTMLCanvasElement>("qr");
   c.getContext("2d")?.clearRect(0, 0, c.width, c.height);
 };
-$("settings-form").onsubmit = (e) => {
-  e.preventDefault();
-  if (!state) return;
-  const settings = {
-    ...state.settings,
+function settingsValues():Settings {
+  return {
+    ...state!.settings,
     port: Number($<HTMLInputElement>("port-input").value),
     proxy: $<HTMLInputElement>("proxy").value,
     autoStart: $<HTMLInputElement>("autostart").checked,
     hideOnClose: $<HTMLInputElement>("hide").checked,
     alwaysOnTop: $<HTMLInputElement>("ontop").checked,
     lan: $<HTMLInputElement>("lan").checked,
+    trayOnly:$<HTMLInputElement>("tray-only").checked,
+    language:$<HTMLSelectElement>("language").value,
+    command:$<HTMLInputElement>("command").value.trim(),
+    pluginPolicy:$<HTMLSelectElement>("plugin-policy").value,
+    registry:$<HTMLInputElement>("registry").value.trim().replace(/\/$/,""),
+    startupMinutes:Number($<HTMLInputElement>("startup-minutes").value),
   };
-  call("configure", settings)
+}
+$("settings-form").onsubmit = (e) => {
+  e.preventDefault();
+  if (!state) return;
+  call("configure", settingsValues())
     .then(() => notice("设置已保存"))
     .catch((e) => notice(e.message));
 };
+action("apply-restart",async()=>{if(!state)return;notice("正在应用设置并重启");await call("restart",settingsValues());notice("设置已保存")});
+$("command-example").onclick=()=>{$<HTMLInputElement>("command").value="pnpm --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=node-pty --allow-build=koffi dlx @deepseek-ai/dsh@0.1.2-rc.1 web"};
+for(const id of ["language","tray-only","hide","ontop"]){
+ $(id).onchange=async()=>{if(!state)return;try{await call("appearance",settingsValues());render(await call("status"))}catch(e){notice((e as Error).message)}};
+}
 action("choose", async () => {
   const p = await call("preview", {
     credentials: $<HTMLInputElement>("credentials").checked,
@@ -166,13 +193,14 @@ action("choose", async () => {
   if (!p) return;
   source = p.source;
   $("preview").textContent =
+    language==="en"?`${source}\n${p.files} files · ${(p.bytes/1024/1024).toFixed(1)} MiB\n${p.credentials?"Includes credentials":"No credentials"}`:
     `${source}\n${p.files} 个文件 · ${(p.bytes / 1024 / 1024).toFixed(1)} MiB\n${p.credentials ? "包含敏感凭据" : "不包含凭据"}`;
   $<HTMLButtonElement>("import").disabled = false;
 });
 $<HTMLInputElement>("credentials").onchange = () => {
   source = "";
   $<HTMLButtonElement>("import").disabled = true;
-  $("preview").textContent = "选项已改变，请重新选择目录以预览。";
+  $("preview").textContent = t("选项已改变，请重新选择目录以预览。");
 };
 action("import", async () => {
   if (!source) return;
@@ -198,4 +226,5 @@ async function poll() {
     setTimeout(poll, 1000);
   }
 }
+setLanguage("system",navigator.language);
 poll();

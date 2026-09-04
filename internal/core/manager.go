@@ -13,12 +13,13 @@ import (
 )
 
 type Snapshot struct {
-	Phase    string    `json:"phase"`
-	Error    string    `json:"error"`
-	Port     int       `json:"port"`
-	Data     string    `json:"data"`
-	Logs     []LogLine `json:"logs"`
-	Settings Settings  `json:"settings"`
+	Phase          string    `json:"phase"`
+	Error          string    `json:"error"`
+	Port           int       `json:"port"`
+	Data           string    `json:"data"`
+	Logs           []LogLine `json:"logs"`
+	Settings       Settings  `json:"settings"`
+	SystemLanguage string    `json:"systemLanguage"`
 }
 type Manager struct {
 	mu                       sync.Mutex
@@ -30,10 +31,11 @@ type Manager struct {
 	port                     int
 	cancel                   context.CancelFunc
 	done                     chan struct{}
+	systemLanguage           string
 }
 
 func NewManager(p Paths, s Settings) *Manager {
-	return &Manager{paths: p, settings: s, phase: "stopped", log: Log{path: filepath.Join(p.Logs, "runtime.log")}}
+	return &Manager{paths: p, settings: s, phase: "stopped", systemLanguage: SystemLanguage(), log: Log{path: filepath.Join(p.Logs, "runtime.log")}}
 }
 func (m *Manager) ReportError(err error) {
 	m.mu.Lock()
@@ -45,7 +47,24 @@ func (m *Manager) ReportError(err error) {
 func (m *Manager) Snapshot() Snapshot {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return Snapshot{m.phase, m.lastError, m.port, m.paths.Data, m.log.Lines(), m.settings}
+	return Snapshot{m.phase, m.lastError, m.port, m.paths.Data, m.log.Lines(), m.settings, m.systemLanguage}
+}
+
+// Appearance changes are live and never restart an active DSH conversation.
+// Only these presentation fields may cross this path while a child is running.
+func (m *Manager) ConfigureAppearance(s Settings) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	current := m.settings
+	current.Language = s.Language
+	current.TrayOnly = s.TrayOnly
+	current.HideOnClose = s.HideOnClose
+	current.AlwaysOnTop = s.AlwaysOnTop
+	if err := m.paths.SaveSettings(current); err != nil {
+		return err
+	}
+	m.settings = current
+	return nil
 }
 func (m *Manager) Configure(s Settings) error {
 	m.mu.Lock()
@@ -146,7 +165,11 @@ func (m *Manager) run(ctx context.Context, s Settings, done chan struct{}) {
 	failure = errors.New("连续三次端口竞争，请稍后重试")
 }
 func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (bool, error) {
-	args := []string{r.CLI, "web", "--no-open", "--port", strconv.Itoa(port)}
+	executable, args, err := i.launchCommand(r)
+	if err != nil {
+		return false, err
+	}
+	args = append(args, "--no-open", "--port", strconv.Itoa(port))
 	if i.Settings.LAN {
 		ip, e := privateAddress()
 		if e != nil {
@@ -163,7 +186,7 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 		m.mu.Unlock()
 		m.log.Add("局域网访问已启用，仅绑定 " + ip + "；链接持有者拥有完整权限")
 	}
-	cmd := exec.Command(r.Node, args...)
+	cmd := exec.Command(executable, args...)
 	cmd.Env = i.environment(r)
 	cmd.Dir = m.paths.Data
 	prepareProcess(cmd)
@@ -215,7 +238,7 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 			<-exited
 		}
 	}
-	timeout := time.NewTimer(90 * time.Second)
+	timeout := time.NewTimer(time.Duration(i.Settings.StartupMinutes) * time.Minute)
 	defer timeout.Stop()
 	for {
 		select {

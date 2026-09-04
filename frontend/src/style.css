@@ -253,7 +253,7 @@ label {
   margin: 20px 0;
   color: #526755;
 }
-input:not([type="checkbox"]) {
+input:not([type="checkbox"]), select {
   width: 100%;
   background: #fffef8;
   border: 1px solid #cbd6c6;

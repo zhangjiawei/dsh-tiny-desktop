@@ -14,6 +14,8 @@ import (
 func main() {
 	root := flag.String("root", "", "isolated test directory (required)")
 	lan := flag.Bool("lan", false, "also verify opt-in LAN authentication")
+	command := flag.String("command", "", "custom launch command to exercise")
+	policy := flag.String("plugin-policy", "pinned", "pinned or latest")
 	flag.Parse()
 	if *root == "" {
 		fmt.Fprintln(os.Stderr, "--root is required")
@@ -25,6 +27,8 @@ func main() {
 	}
 	settings := core.Defaults()
 	settings.LAN = *lan
+	settings.Command = *command
+	settings.PluginPolicy = *policy
 	m := core.NewManager(p, settings)
 	m.Start()
 	last := 0

@@ -33,6 +33,7 @@ func (i *Installer) environment(r Runtime) []string {
 		env = append(env, v)
 	}
 	env = append(env, "DSH_HOME="+i.Paths.Data, "PATH="+r.Bin+string(os.PathListSeparator)+filepath.Dir(r.Node)+string(os.PathListSeparator)+os.Getenv("PATH"), "CI=true")
+	env = append(env, "npm_config_registry="+i.Settings.Registry)
 	if i.Settings.Proxy != "" {
 		env = append(env, "HTTP_PROXY="+i.Settings.Proxy, "HTTPS_PROXY="+i.Settings.Proxy)
 	}
@@ -136,20 +137,23 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	r.Bin = filepath.Join(toolsDir, "node_modules/.bin")
 	r.CLI = filepath.Join(i.Paths.Runtime, "dsh/node_modules/@deepseek-ai/dsh/lib/bin.js")
 	receipt := filepath.Join(i.Paths.Runtime, "receipt.json")
-	expected, _ := json.Marshal(struct {
-		DSH, PNPM string
-		Plugins   []Plugin
-	}{DSHVersion, PnpmVersion, Plugins})
-	if b, e := os.ReadFile(receipt); e == nil && string(b) == string(expected) {
-		if _, e = os.Stat(r.CLI); e == nil {
+	previous, receiptErr := i.readReceipt()
+	if receiptErr == nil && previous.DSH == DSHVersion && previous.PNPM == PnpmVersion && previous.Policy == i.Settings.PluginPolicy && previous.Registry == i.Settings.Registry {
+		if _, e := os.Stat(r.CLI); e == nil {
 			return r, nil
 		}
 	}
+	selected, err := i.resolvePlugins(ctx)
+	if err != nil {
+		return r, err
+	}
+	expected, _ := json.Marshal(installReceipt{DSHVersion, PnpmVersion, selected, i.Settings.PluginPolicy, i.Settings.Registry})
+	registryArg := "--registry=" + i.Settings.Registry
 	if err = os.MkdirAll(toolsDir, 0700); err != nil {
 		return r, err
 	}
 	i.Log.Add("安装独立 pnpm " + PnpmVersion)
-	if err = i.run(ctx, r, r.NPM, "install", "--prefix", toolsDir, "--save-exact", "--ignore-scripts", "--no-audit", "--no-fund", "--registry=https://registry.npmjs.org/", "pnpm@"+PnpmVersion); err != nil {
+	if err = i.run(ctx, r, r.NPM, "install", "--prefix", toolsDir, "--save-exact", "--ignore-scripts", "--no-audit", "--no-fund", registryArg, "pnpm@"+PnpmVersion); err != nil {
 		return r, err
 	}
 	i.Log.Add("安装固定版本 DSH " + DSHVersion)
@@ -161,7 +165,7 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	if err = AtomicWrite(filepath.Join(dshDir, "package.json"), policy, 0600); err != nil {
 		return r, err
 	}
-	if err = i.run(ctx, r, r.NPM, "install", "--prefix", dshDir, "--save-exact", "--ignore-scripts", "--no-audit", "--no-fund", "--registry=https://registry.npmjs.org/", "@deepseek-ai/dsh@"+DSHVersion); err != nil {
+	if err = i.run(ctx, r, r.NPM, "install", "--prefix", dshDir, "--save-exact", "--ignore-scripts", "--no-audit", "--no-fund", registryArg, "@deepseek-ai/dsh@"+DSHVersion); err != nil {
 		return r, err
 	}
 	if err = i.run(ctx, r, r.NPM, "rebuild", "--prefix", dshDir, "--ignore-scripts=false", "@deepseek-ai/dsh-subprocess-local@0.1.2-rc.1", "node-pty@1.2.0-beta.15", "koffi@3.2.1"); err != nil {
@@ -170,7 +174,7 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	// Let the official CLI initialize and reconcile its profile. No private
 	// cordis config format is invented by the desktop shell.
 	i.Log.Add("初始化独立 Web profile")
-	if err = i.run(ctx, r, r.CLI, "plugin", "--profile", "web", "install", "--registry=https://registry.npmjs.org/"); err != nil {
+	if err = i.run(ctx, r, r.CLI, "plugin", "--profile", "web", "install", registryArg); err != nil {
 		return r, err
 	}
 	profile := filepath.Join(i.Paths.Data, "profiles/web")
@@ -181,8 +185,8 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	if err = AtomicWrite(filepath.Join(profile, "pnpm-workspace.yaml"), []byte("autoInstallPeers: false\nnodeLinker: hoisted\nonlyBuiltDependencies:\n  - esbuild\n  - node-pty\n"), 0600); err != nil {
 		return r, err
 	}
-	args := []string{r.CLI, "plugin", "--profile", "web", "add", "--save-exact", "--registry=https://registry.npmjs.org/"}
-	for _, p := range Plugins {
+	args := []string{r.CLI, "plugin", "--profile", "web", "add", "--save-exact", registryArg}
+	for _, p := range selected {
 		args = append(args, p.Name+"@"+p.Version)
 	}
 	i.Log.Add("安装 6 个默认插件")

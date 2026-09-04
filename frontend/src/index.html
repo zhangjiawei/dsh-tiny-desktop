@@ -30,7 +30,7 @@
     </aside>
     <main>
       <header>
-        <span>YOUR LOCAL WORKSPACE</span><span class="version">v0.1.0</span>
+        <span>YOUR LOCAL WORKSPACE</span><span class="version">v0.2.0</span>
       </header>
       <section id="overview">
         <div class="eyebrow">READY WHEN YOU ARE</div>
@@ -72,8 +72,16 @@
       <section id="settings" hidden>
         <div class="eyebrow">MAKE IT YOURS</div>
         <h1>保持简单，也留有余地。</h1>
-        <p class="intro">修改运行设置前请先停止服务。</p>
+        <p class="intro">外观设置立即生效；运行设置可保存或应用并重启。</p>
         <form id="settings-form">
+          <label>语言<select id="language"><option value="system">跟随系统</option><option value="zh">简体中文</option><option value="en">English</option></select><small>默认跟随系统语言。仅控制桌面外壳，DSH 工作空间语言由其自身设置管理。</small></label>
+          <label class="check"><input id="tray-only" type="checkbox" />最小化或关闭时从 Dock / 任务栏隐藏</label>
+          <small>开启后仅保留菜单栏 / 系统托盘图标。单击恢复窗口，右键打开菜单；不会停止 DSH。</small>
+          <label>自定义启动命令<input id="command" type="text" placeholder="pnpm dlx @deepseek-ai/dsh@0.1.2-rc.1 web" spellcheck="false" /><small>留空使用内置托管启动。支持带引号的参数，不支持 Shell 管道或变量。端口、--no-open 和认证由外壳管理。</small></label>
+          <button type="button" id="command-example">填入 pnpm dlx 示例</button><small>示例仅允许 DSH subprocess、node-pty、koffi 的必要安装脚本；不要使用全部放行选项。</small>
+          <label>插件安装策略<select id="plugin-policy"><option value="pinned">已验证的固定版本（推荐）</option><option value="latest">安装时解析最新版</option></select><small>最新版会记录具体版本，普通重启不自动升级。切换策略后应用并重启。</small></label>
+          <label>npm / pnpm 仓库<input id="registry" type="url" placeholder="https://registry.npmjs.org" /><small>用于运行环境包和插件安装，可配置 HTTPS 镜像；自定义命令中的仓库参数优先。</small></label>
+          <label>启动等待时间（分钟）<input id="startup-minutes" type="number" min="1" max="120" value="60" /><small>用于等待自定义命令下载依赖并启动服务，范围 1–120 分钟。</small></label>
           <label
             >首选端口<input
               id="port-input"
@@ -101,7 +109,7 @@
             ><input id="ontop" type="checkbox" />DSH 窗口始终置顶</label
           ><label class="check"><input id="lan" type="checkbox" />启用局域网分享（链接持有者拥有完整访问权限）</label>
           <small>默认关闭。仅在可信私有网络使用；HTTP 流量未加密，不适合公共 Wi-Fi 或公网。</small>
-          <button class="primary">保存设置</button>
+          <div class="actions"><button class="primary" type="submit">保存设置</button><button type="button" id="apply-restart">应用并重启</button></div>
         </form>
       </section>
       <section id="data" hidden>

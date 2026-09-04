@@ -7,16 +7,20 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+	"github.com/wailsapp/wails/v3/pkg/services/dock"
 	"github.com/zhangjiawei/dsh-tiny-desktop/frontend"
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
 )
 
-var version = "0.1.0"
+var version = "0.2.0"
+
+// QA builds may override this via -ldflags to test in an isolated app instance.
+var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
 
 func main() {
 	p, err := core.NewPaths(os.Getenv("DSH_TINY_HOME"))
@@ -36,26 +40,41 @@ func main() {
 	}
 	var app *application.App
 	var control, workspace *application.WebviewWindow
+	dockIcon := dock.New() // Used from Go only; never exposed to the DSH window.
+	var applyAppearance = func() {}
+	restore := func(w *application.WebviewWindow) {
+		if runtime.GOOS == "darwin" {
+			dockIcon.ShowAppIcon()
+		}
+		w.UnMinimise()
+		w.Show()
+		w.Focus()
+	}
+	showControl := func() { restore(control) }
+	loadedURL := ""
+	var loadMu sync.Mutex
 	assets, _ := fs.Sub(frontend.Assets, "dist")
 	showWorkspace := func() {
+		loadMu.Lock()
+		defer loadMu.Unlock()
 		if u, e := manager.LaunchURL(); e == nil {
-			workspace.SetURL(u)
-			workspace.Show()
+			// Restoring must not reload an active conversation or replay auth.
+			if loadedURL != u {
+				workspace.SetURL(u)
+				loadedURL = u
+			}
+			restore(workspace)
 		} else {
-			control.Show()
+			showControl()
 		}
 	}
 	app = application.New(application.Options{Name: "DSH Tiny", Description: "An independent desktop home for DeepSeek Harness", Assets: application.AssetOptions{Handler: http.FileServer(http.FS(assets))},
-		SingleInstance: &application.SingleInstanceOptions{UniqueID: "com.zhangjiawei.dsh-tiny-desktop", OnSecondInstanceLaunch: func(application.SecondInstanceData) { control.Show() }},
+		SingleInstance: &application.SingleInstanceOptions{UniqueID: instanceID, OnSecondInstanceLaunch: func(application.SecondInstanceData) { showControl() }},
 		Mac:            application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: false},
 		RawMessageHandler: func(w application.Window, message string, origin *application.OriginInfo) {
 			// Window identity alone is insufficient: a trusted window could navigate to
 			// a hostile document. Require both the local origin and the top-level frame.
-			if w.Name() != "control" || origin == nil || !origin.IsMainFrame {
-				return
-			}
-			o := strings.TrimSuffix(origin.Origin, "/")
-			if o != "wails://localhost" && o != "http://wails.localhost" {
+			if origin == nil || !core.TrustedControlOrigin(w.Name(), origin.Origin, origin.IsMainFrame) {
 				return
 			}
 			if len(message) > 16384 {
@@ -101,13 +120,27 @@ func main() {
 					if e == nil {
 						app.Clipboard.SetText(u)
 					}
-				case "configure":
+				case "configure", "restart", "appearance":
 					var s core.Settings
 					e = json.Unmarshal(request.Data, &s)
 					if e == nil {
-						e = manager.Configure(s)
+						if request.Action == "appearance" {
+							e = manager.ConfigureAppearance(s)
+						} else {
+							// Validate before stopping: a typo must not interrupt work.
+							e = s.Validate()
+							if e == nil {
+								if request.Action == "restart" {
+									manager.Stop()
+								}
+								e = manager.Configure(s)
+							}
+							if e == nil && request.Action == "restart" {
+								e = manager.Start()
+							}
+						}
 						if e == nil {
-							workspace.SetAlwaysOnTop(s.AlwaysOnTop)
+							applyAppearance()
 						}
 					}
 				case "preview":
@@ -155,11 +188,37 @@ func main() {
 	control = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "control", Title: "DSH Tiny · 控制中心", Width: 1000, Height: 800, MinWidth: 820, MinHeight: 680, URL: "/", BackgroundColour: application.NewRGB(243, 245, 239)})
 	// Start at a neutral document, not the wails:// control origin. WKWebView
 	// otherwise withholds DSH's SameSite=Strict cookie on the first redirect.
-	workspace = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "workspace", Title: "DSH Tiny", Width: settings.Width, Height: settings.Height, MinWidth: 760, MinHeight: 540, Hidden: true, AlwaysOnTop: settings.AlwaysOnTop, URL: "about:blank", KeyBindings: map[string]func(application.Window){"CmdOrCtrl+,": func(application.Window) { control.Show() }, "CmdOrCtrl+R": func(w application.Window) { w.Reload() }}})
-	control.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) { control.Hide(); e.Cancel() })
+	workspace = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "workspace", Title: "DSH Tiny", Width: settings.Width, Height: settings.Height, MinWidth: 760, MinHeight: 540, Hidden: true, AlwaysOnTop: settings.AlwaysOnTop, URL: "about:blank", KeyBindings: map[string]func(application.Window){"CmdOrCtrl+,": func(application.Window) { showControl() }, "CmdOrCtrl+R": func(w application.Window) { w.Reload() }}})
+	hideToTray := func() {
+		// Hide every native window, so Windows/Linux remove their taskbar entries.
+		// macOS additionally needs an accessory activation policy to remove Dock.
+		control.Hide()
+		workspace.Hide()
+		if runtime.GOOS == "darwin" {
+			dockIcon.HideAppIcon()
+		}
+	}
+	control.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		if manager.Snapshot().Settings.TrayOnly {
+			hideToTray()
+		} else {
+			control.Hide()
+		}
+		e.Cancel()
+	})
+	for _, w := range []*application.WebviewWindow{control, workspace} {
+		w.OnWindowEvent(events.Common.WindowMinimise, func(*application.WindowEvent) {
+			if manager.Snapshot().Settings.TrayOnly {
+				hideToTray()
+			}
+		})
+	}
 	workspace.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		s := manager.Snapshot().Settings
-		if s.HideOnClose {
+		if s.TrayOnly {
+			hideToTray()
+			e.Cancel()
+		} else if s.HideOnClose {
 			workspace.Hide()
 			e.Cancel()
 		} else {
@@ -167,15 +226,29 @@ func main() {
 		}
 	})
 	menu := app.NewMenu()
-	menu.Add("打开工作空间").OnClick(func(*application.Context) { showWorkspace() })
-	menu.Add("控制中心 / 设置").OnClick(func(*application.Context) { control.Show() })
+	var translated []struct {
+		item   *application.MenuItem
+		zh, en string
+	}
+	addMenu := func(m *application.Menu, zh, en string, action func(*application.Context)) {
+		// Native callbacks may arrive on Cocoa's main thread. Wails beta.16's
+		// Dock service synchronously dispatches to that thread, so run actions
+		// off-thread (as the control bridge already does) to avoid SIGILL.
+		item := m.Add(zh).OnClick(func(ctx *application.Context) { go action(ctx) })
+		translated = append(translated, struct {
+			item   *application.MenuItem
+			zh, en string
+		}{item, zh, en})
+	}
+	addMenu(menu, "打开工作空间", "Open workspace", func(*application.Context) { showWorkspace() })
+	addMenu(menu, "控制中心 / 设置", "Control center / Settings", func(*application.Context) { showControl() })
 	menu.AddSeparator()
-	menu.Add("刷新").OnClick(func(*application.Context) { workspace.Reload() })
-	menu.Add("放大").OnClick(func(*application.Context) { workspace.ZoomIn() })
-	menu.Add("缩小").OnClick(func(*application.Context) { workspace.ZoomOut() })
-	menu.Add("恢复缩放").OnClick(func(*application.Context) { workspace.ZoomReset() })
+	addMenu(menu, "刷新", "Reload", func(*application.Context) { workspace.Reload() })
+	addMenu(menu, "放大", "Zoom in", func(*application.Context) { workspace.ZoomIn() })
+	addMenu(menu, "缩小", "Zoom out", func(*application.Context) { workspace.ZoomOut() })
+	addMenu(menu, "恢复缩放", "Reset zoom", func(*application.Context) { workspace.ZoomReset() })
 	menu.AddSeparator()
-	menu.Add("退出 DSH Tiny").OnClick(func(*application.Context) { app.Quit() })
+	addMenu(menu, "退出 DSH Tiny", "Quit DSH Tiny", func(*application.Context) { app.Quit() })
 	tray := app.SystemTray.New()
 	icon, _ := fs.ReadFile(assets, "tray.png")
 	if runtime.GOOS == "darwin" {
@@ -185,10 +258,32 @@ func main() {
 		tray.SetIcon(icon)
 	}
 	tray.SetMenu(menu)
+	tray.OnClick(func() { go showWorkspace() }).OnDoubleClick(func() { go showWorkspace() }).OnRightClick(tray.ShowMenu)
 	appMenu := app.NewMenu()
-	appMenu.AddSubmenu("DSH Tiny").Add("控制中心").OnClick(func(*application.Context) { control.Show() })
-	appMenu.AddSubmenu("文件").Add("退出").OnClick(func(*application.Context) { app.Quit() })
+	appSubmenu := appMenu.AddSubmenu("DSH Tiny")
+	addMenu(appSubmenu, "控制中心", "Control center", func(*application.Context) { showControl() })
+	addMenu(appSubmenu, "退出", "Quit", func(*application.Context) { app.Quit() })
 	app.Menu.Set(appMenu)
+	applyAppearance = func() {
+		s := manager.Snapshot()
+		lang := core.ResolveLanguage(s.Settings.Language, s.SystemLanguage)
+		for _, entry := range translated {
+			label := entry.zh
+			if lang == "en" {
+				label = entry.en
+			}
+			entry.item.SetLabel(label)
+		}
+		title := "DSH Tiny · 控制中心"
+		if lang == "en" {
+			title = "DSH Tiny · Control Center"
+		}
+		control.SetTitle(title)
+		workspace.SetAlwaysOnTop(s.Settings.AlwaysOnTop)
+		if !s.Settings.TrayOnly && runtime.GOOS == "darwin" {
+			dockIcon.ShowAppIcon()
+		}
+	}
 	app.OnShutdown(func() {
 		manager.Stop()
 		s := manager.Snapshot().Settings
@@ -200,12 +295,18 @@ func main() {
 		}
 	})
 	go func() {
+		// Wait until Cocoa's event loop exists before changing Dock policy.
 		last := ""
+		appearanceReady := false
 		for {
 			select {
 			case <-app.Context().Done():
 				return
 			case <-time.After(time.Second):
+				if !appearanceReady {
+					applyAppearance()
+					appearanceReady = true
+				}
 				s := manager.Snapshot()
 				if s.Phase == "running" && last != "running" {
 					showWorkspace()

@@ -1,5 +1,16 @@
 # 验证记录
 
+## v0.2.0 回归（2026-09-04）
+
+- 本机 `go test -race ./internal/core`、`go vet ./internal/core`、`npm test --prefix frontend` 与前端构建通过。
+- 来源检查回归先失败后通过：允许可信控制文档的 `#overview` / `#settings`，拒绝外部站点、伪造域名、其他窗口、子框架和非控制路径。原生分享按钮在旧版失败，修复后能够打开认证二维码弹窗。
+- 前端语言轮询回归先失败后通过：重复状态轮询不再重写语言选项 DOM，避免打断原生下拉菜单。
+- macOS 原生窗口验证英文即时切换、英文菜单、系统中文识别；切换外观不重启 DSH。隐藏到托盘时 activation policy 为 accessory，屏幕可见应用窗口数为零。
+- 托盘恢复测试捕获 Wails beta.16 Dock API 主线程同步派发造成的 SIGILL。已将托盘和菜单动作移至 Go 工作协程；修复后的完整隐藏/恢复回归等待解锁本机桌面，不能据代码检查标为通过。
+- 隔离目录 `/tmp/dsh-tiny-v020-latest-20260904` 完成真实 latest 安装：codex-ui 0.2.103、im-connect 0.1.34、automation 0.1.30、dshmarket 1.41.0、task-complete-notify 0.2.0、better-sidebar 0.18.0；普通重启复用精确版本回执。
+- 同一隔离目录使用 UI 示例中的 `pnpm --allow-build=… dlx @deepseek-ai/dsh@0.1.2-rc.1 web` 完成真实端口避让、token→Cookie 认证和进程停止；CLI、profile、实际 dlx 缓存三处原生 PTY 创建/输出/退出通过。没有用受管 CLI 的 PTY 结果冒充 dlx 测试。
+- v0.2.0 六平台 CI 与最终 Release 校验待执行；下面的六平台结果仅属于 v0.1.0。
+
 ## 本地验证（2026-09-04，macOS Intel）
 
 - `go test -race ./internal/core`：通过。覆盖设置原子保存、代理约束、认证 URL 校验、Cookie/HTML 就绪、端口避让、日志脱敏、归档路径、导入备份恢复、符号链接拒绝和六平台 Node 清单。

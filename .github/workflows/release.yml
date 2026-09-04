@@ -39,7 +39,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libxdo-dev build-essential pkg-config
       - name: Build frontend
         working-directory: frontend
-        run: npm ci --no-audit --no-fund && npm run build
+        run: npm ci --no-audit --no-fund && npm test && npm run build
       - name: Test core
         run: go test -count=1 ./internal/core
       - name: Race detector
@@ -50,6 +50,8 @@ jobs:
       - name: Real LAN authentication
         if: runner.os == 'Linux'
         run: go run ./cmd/smoke --root "${{ runner.temp }}/dsh-tiny-smoke" --lan
+      - name: Real custom pnpm dlx and native PTY
+        run: go run ./cmd/smoke --root "${{ runner.temp }}/dsh-tiny-smoke" --command "pnpm --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=node-pty --allow-build=koffi dlx @deepseek-ai/dsh@0.1.2-rc.1 web"
       - name: Package native application
         env:
           GOARCH: ${{ matrix.goarch }}

@@ -7,8 +7,10 @@ var failed=false
 var webAreas=0
 var running=false
 var dshLoaded=false
+var visited=Set<CFHashCode>()
 func attr(_ el: AXUIElement, _ name: String) -> AnyObject? { var v: CFTypeRef?; AXUIElementCopyAttributeValue(el,name as CFString,&v);return v }
 func walk(_ el: AXUIElement,_ depth:Int){
+ if !visited.insert(CFHash(el)).inserted{return}
  if depth > 22 {return};let role=attr(el,"AXRole") as? String ?? "?"
  if role=="AXWebArea"{webAreas += 1}
  let fields=["AXTitle","AXDescription","AXValue"].compactMap{attr(el,$0) as? String}.map{$0.replacingOccurrences(of:"token=[^\\s&]+",with:"token=<REDACTED>",options:.regularExpression)}
