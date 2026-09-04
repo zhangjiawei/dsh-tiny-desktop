@@ -40,8 +40,8 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm ci --no-audit --no-fund && npm test && npm run build
-      - name: Test core
-        run: go test -count=1 ./internal/core
+      - name: Test application packages
+        run: go test -count=1 ./...
       - name: Verify cross-platform module metadata
         run: go mod tidy -diff
       - name: Race detector
@@ -64,6 +64,8 @@ jobs:
           node scripts/package.mjs
       - name: Native Windows WebView2 control bridge
         if: runner.os == 'Windows'
+        env:
+          GOARCH: ${{ matrix.goarch }}
         shell: pwsh
         run: |
           $binary = Get-ChildItem dist -Filter dsh-tiny.exe -Recurse | Select-Object -First 1

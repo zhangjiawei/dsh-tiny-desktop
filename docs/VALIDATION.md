@@ -6,7 +6,11 @@
 - 来源检查按平台适配；macOS 保留主 frame 校验，Windows 同时检查发送方与顶层控制 URL，Linux 配合 `frame-src 'none'` 的控制页 CSP。外部站点、非控制窗口、错误路径和缺失 Windows 顶层来源均拒绝。
 - `TestSaveWhileRunningNeverStopsService` 修复前得到“请先停止服务再修改设置”，修复后确认服务状态/端口不变、配置持久化、待重启标记、恢复原配置清除标记、无效保存不生效。
 - 新安装开关默认值及保留已有 false 选择的回归通过。`Log.Lines()` 空列表可序列化为 []，不是 Windows 空白页的根因。
-- 本地核心测试、race、模块完整性、前端测试、TypeScript 构建通过。发布工作流新增 `scripts/windows-webview-smoke.mjs`：以隔离目录运行打包后的 Windows exe，使用仅该测试进程开启的 WebView2 CDP，驱动真实界面而非模拟 bridge。实际 Windows 结果将在运行完成后补录。
+- 本地 `go test ./...`、核心 race/vet、模块完整性、前端测试、TypeScript 构建通过。Mac QA 实测：服务 PID 55052 / 端口 57968 上保存首选端口 43082 后原 PID/端口不变、设置文件持久化、界面显示待应用；点击“应用并重启”后原进程退出，新 PID 55315 在 43082 认证就绪。托盘最小化/关闭/恢复回归通过。所有 QA 进程已正常退出，测试目录设置恢复 3080。
+- Windows 验证新增两层：正式打包 exe 由 `windows-control-ready.ps1` 的 UIA 验证真实后台 Stopped 状态；同源码仅通过链接期端口参数构建的 QA exe 由 `windows-webview-smoke.mjs` 操作实际 WebView2/DSH，不模拟 bridge。正式包默认不提供调试端口，环境变量不能启用该编译期选项。
+- 第一轮 Windows x64 的真实 DSH/六插件/PTY 均通过，但原生探针超时。原因是 Wails 内部 `preventEnvAndRegistryOverrides` 清空了 SDK 调试环境变量；已改为上述 UIA + 编译期 QA 探针，不将这次探针失败算作原生验证成功。最终 Windows 结果将在运行完成后补录。
+- 第二轮 [Windows x64 原生验证](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33890667333/job/101081634854) 于 2026-09-04 23:43:36（UTC+8）通过：正式 exe UIA 状态；QA WebView2 初始空日志/独立目录；真实启动按钮、认证就绪、端口/日志；保存新端口时当前服务不变；打开窗口、QR、停止、下次启动应用新端口。全部步骤通过后才上传构建产物。
+- 同轮 [Windows ARM64 原生验证](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33890667333/job/101081635148) 的原生控制桥与产物上传步骤也通过。首次安装耗时约 4 分 53 秒，实时日志确认下载安装在推进，随后真实 pnpm dlx/PTY 通过；并非界面连接死锁。
 
 ## v0.2.0 本地验证（2026-09-04，macOS Intel）
 
@@ -42,7 +46,7 @@ CI 修复记录：Windows Dock 服务补齐 x/image/x/text 模块记录；`.gita
 
 ## 限制
 
-- Windows/Linux 原生 GUI 和 macOS ARM64 GUI 未由本机 Intel Mac 代替验证。
+- Windows x64/ARM64 原生控制页由对应 CI runner 的 UIA 与 WebView2 验证；没有将本机 Mac 结果代替 Windows。Linux 原生 GUI 和 macOS ARM64 GUI 仍未验证。
 - 模型对话、IM 平台绑定与系统通知仍需用户自己的凭据和权限；安装成功不代表所有第三方业务功能已经验证。
 - 本机私有 IPv4 HTTP 访问曾因系统网络环境超时；没有改动系统代理/防火墙。Linux CI 的真实 LAN 认证不代表每台用户机器的网络权限配置。
 - macOS 仅 ad-hoc 签名，无 Apple Developer ID 公证；Windows 未商业签名。Linux 需要 GTK4/WebKitGTK 6.0。
