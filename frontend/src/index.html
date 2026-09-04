@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'"
+    />
+    <title>DSH Tiny · 控制中心</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <aside>
+      <a class="brand" href="#overview"
+        ><img src="/icon.svg" alt="" /><span
+          >dsh<span class="thin"> tiny</span
+          ><small>DESKTOP / CONTROL</small></span
+        ></a
+      >
+      <nav>
+        <a class="active" href="#overview">概览 <span>01</span></a
+        ><a href="#settings">运行设置 <span>02</span></a
+        ><a href="#data">数据迁移 <span>03</span></a
+        ><a href="#logs">运行日志 <span>04</span></a>
+      </nav>
+      <footer>
+        小巧外壳，完整能力。<br /><span>WAILS v3 · LOCAL FIRST</span>
+      </footer>
+    </aside>
+    <main>
+      <header>
+        <span>YOUR LOCAL WORKSPACE</span><span class="version">v0.1.0</span>
+      </header>
+      <section id="overview">
+        <div class="eyebrow">READY WHEN YOU ARE</div>
+        <h1>让工作，轻装上阵。</h1>
+        <p class="intro">
+          DSH 的完整体验。一个安静、独立、随时可控的桌面入口。
+        </p>
+        <div class="runtime">
+          <div class="status-head">
+            <span id="phase" class="badge">连接控制中心…</span
+            ><span class="mono" id="port">127.0.0.1 : —</span>
+          </div>
+          <h2 id="headline">你的工作空间正在准备。</h2>
+          <p id="status-help">
+            首次运行会安装独立环境和默认插件。已有的 DshShell 不会被修改。
+          </p>
+          <div class="actions">
+            <button id="start" class="primary">启动工作空间 ↗</button
+            ><button id="open">打开窗口</button
+            ><button id="stop" class="quiet">停止服务</button>
+          </div>
+          <div id="error" role="alert"></div>
+        </div>
+        <div class="utility">
+          <button id="browser">↗ 在浏览器中打开</button
+          ><button id="copy">⧉ 复制认证链接</button
+          ><button id="share">▦ 分享二维码</button
+          ><button id="updates">↓ 检查更新</button>
+        </div>
+        <div class="plugins">
+          <div class="section-label">开箱即用 <span>6 个默认插件</span></div>
+          <div class="plugin-list">
+            <span>Codex UI</span><span>IM Connect</span><span>Automation</span
+            ><span>DSH Market</span><span>任务完成通知</span
+            ><span>Better Sidebar</span>
+          </div>
+        </div>
+      </section>
+      <section id="settings" hidden>
+        <div class="eyebrow">MAKE IT YOURS</div>
+        <h1>保持简单，也留有余地。</h1>
+        <p class="intro">修改运行设置前请先停止服务。</p>
+        <form id="settings-form">
+          <label
+            >首选端口<input
+              id="port-input"
+              type="number"
+              min="1024"
+              max="65535"
+              value="3080"
+            /><small
+              >端口被占用时自动选择空闲端口，不会终止其他应用。</small
+            ></label
+          ><label
+            >HTTP(S) 代理<input
+              id="proxy"
+              type="url"
+              placeholder="http://127.0.0.1:7890"
+            /><small
+              >仅用于本应用的安装和 DSH 子进程；不修改系统代理。</small
+            ></label
+          ><label class="check"
+            ><input id="autostart" type="checkbox" />打开应用后自动启动
+            DSH</label
+          ><label class="check"
+            ><input id="hide" type="checkbox" />关闭窗口时隐藏到托盘</label
+          ><label class="check"
+            ><input id="ontop" type="checkbox" />DSH 窗口始终置顶</label
+          ><label class="check"><input id="lan" type="checkbox" />启用局域网分享（链接持有者拥有完整访问权限）</label>
+          <small>默认关闭。仅在可信私有网络使用；HTTP 流量未加密，不适合公共 Wi-Fi 或公网。</small>
+          <button class="primary">保存设置</button>
+        </form>
+      </section>
+      <section id="data" hidden>
+        <div class="eyebrow">YOUR DATA, YOUR CHOICE</div>
+        <h1>迁入，而不是覆盖。</h1>
+        <p class="intro">
+          只读原目录，复制到本应用的独立数据空间。请先退出原
+          DSH，确保源数据不再变化。
+        </p>
+        <div class="data-path">
+          <small>当前独立数据目录</small><code id="data-path"></code>
+        </div>
+        <p>
+          导入会复制会话、附件、技能和设置；不复制插件代码、缓存或运行锁。现有独立数据会自动备份。
+        </p>
+        <label class="check"
+          ><input id="credentials" type="checkbox" />同时复制凭据（API Key
+          等敏感配置）</label
+        >
+        <div class="actions">
+          <button id="choose">选择原 DSH 数据目录…</button
+          ><button id="import" class="primary" disabled>确认导入</button>
+        </div>
+        <pre id="preview"></pre>
+        <button id="restore" hidden>恢复此次导入前的备份</button>
+      </section>
+      <section id="logs" hidden>
+        <div class="eyebrow">NOTHING HIDDEN</div>
+        <h1>状态，始终看得见。</h1>
+        <p class="intro">
+          最近 500 行运行输出，认证链接和常见敏感字段自动脱敏。
+        </p>
+        <pre id="log-output" aria-live="off"></pre>
+      </section>
+      <div id="notice" role="status"></div>
+    </main>
+    <dialog id="share-dialog">
+      <button id="close-share" class="close" aria-label="关闭">×</button>
+      <div class="eyebrow">AUTHENTICATED ACCESS</div>
+      <h2 id="share-title">同一台电脑，换个浏览器。</h2>
+      <p id="share-warning">此链接包含完整访问凭证，请勿公开。当前为仅本机地址，手机无法访问。</p>
+      <canvas id="qr"></canvas><button id="dialog-copy">复制认证链接</button>
+    </dialog>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

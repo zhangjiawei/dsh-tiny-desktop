@@ -1,0 +1,16 @@
+/bin/
+/dist/
+/work/
+/frontend/node_modules/
+/frontend/dist/
+.DS_Store
+*.log
+*.test
+coverage.out
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx

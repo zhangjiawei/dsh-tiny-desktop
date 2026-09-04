@@ -1,0 +1,84 @@
+name: Test, build and release
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: macos-15-intel, goarch: amd64, name: macos-amd64}
+          - {runner: macos-15, goarch: arm64, name: macos-arm64}
+          - {runner: windows-latest, goarch: amd64, name: windows-amd64}
+          - {runner: windows-11-arm, goarch: arm64, name: windows-arm64}
+          - {runner: ubuntu-24.04, goarch: amd64, name: linux-amd64}
+          - {runner: ubuntu-24.04-arm, goarch: arm64, name: linux-arm64}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.20.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install Linux native development libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libxdo-dev build-essential pkg-config
+      - name: Build frontend
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: Test core
+        run: go test -count=1 ./internal/core
+      - name: Race detector
+        if: matrix.goarch == 'amd64'
+        run: go test -race ./internal/core
+      - name: Real isolated DSH startup and shutdown
+        run: go run ./cmd/smoke --root "${{ runner.temp }}/dsh-tiny-smoke"
+      - name: Package native application
+        env:
+          GOARCH: ${{ matrix.goarch }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          if [[ "$RELEASE_TAG" == v* ]]; then export VERSION="${RELEASE_TAG#v}"; fi
+          node scripts/package.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+          if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Generate checksums and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cd release
+          sha256sum *.zip *.tar.gz > SHA256SUMS.txt
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "DSH Tiny $TAG" --notes-file ../docs/RELEASE_NOTES.md *.zip *.tar.gz SHA256SUMS.txt
