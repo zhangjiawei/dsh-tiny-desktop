@@ -18,9 +18,13 @@
 
 ## v0.2.0 跨平台发布门禁
 
-前一候选 `be2798c` 的 [六平台 CI](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33876884592) 已通过。它早于本轮“首次安装自动 latest”和视觉重设计；不能用该结果代替最终 tag 验证。
+最终 tag `v0.2.0`（`3a1140b`）的 [发布工作流](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33880676139) 已成功完成全部六个 build job 和 release job，覆盖本轮“首次安装自动 latest”和视觉重设计，而非引用前一候选的结果。
 
-最终 v0.2.0 tag 工作流须再次通过：macOS Intel/ARM64、Windows x64/ARM64、Linux x64/ARM64 的核心/前端测试、模块完整性、真实 DSH/六插件安装、认证/退出、pnpm dlx 原生 PTY 和打包。三个 amd64 runner 运行 race；两个 Linux runner 另做真实 LAN 认证。全部通过后才能创建公开预发布 Release，之后复核六个资产及 SHA256SUMS.txt。
+macOS Intel/ARM64、Windows x64/ARM64、Linux x64/ARM64 全部通过核心/前端测试、模块完整性、真实 DSH/六个 latest 插件安装、认证/退出、pnpm dlx 原生 PTY 和打包。三个 amd64 runner 运行 race；两个 Linux runner 另做真实 LAN 认证。
+
+[v0.2.0 Release](https://github.com/zhangjiawei/dsh-tiny-desktop/releases/tag/v0.2.0) 已公开（非草稿、预发布），含六个安装包与 SHA256SUMS.txt。发布后重新下载全部六包，SHA-256 与文件大小均通过复核；解压后 Mach-O x86_64/arm64、PE GUI x86-64/Aarch64、ELF x86-64/aarch64 与资产命名一致。两个 macOS 包均通过 `codesign --verify --deep --strict`，这不代表 Apple 公证。
+
+本机应用已替换为公开下载的 macOS Intel 包（可执行文件与下载包逐字节一致），保留原独立数据目录；2026-09-04 22:04:50（UTC+8）再次记录“已认证并就绪，端口 51534”。本地候选包备份保留在忽略目录，未覆盖原 DshShell。
 
 CI 修复记录：Windows Dock 服务补齐 x/image/x/text 模块记录；`.gitattributes` 固定模块文件 LF，防止 Windows CRLF 被 `go mod tidy -diff` 误报。Windows ConPTY 验证器在输出成功后显式退出，避免后台句柄保留事件循环。
 
