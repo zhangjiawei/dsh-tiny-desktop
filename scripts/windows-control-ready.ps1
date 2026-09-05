@@ -35,7 +35,11 @@ function Get-SettingsGearIconStats([IntPtr]$Handle) {
                 Green = $green
                 Light = $light
                 Pixels = $pixels
-                Valid = $green -ge [Math]::Max(4, [Math]::Floor($pixels * 0.025)) -and $light -ge [Math]::Floor($pixels * 0.25)
+                # The 32 px artwork deliberately keeps more transparent space
+                # than the compact 16 px title-bar variant. Green gear pixels
+                # distinguish it from the Windows placeholder; light detail
+                # guards against accepting a flat accidental green bitmap.
+                Valid = $green -ge [Math]::Max(4, [Math]::Floor($pixels * 0.02)) -and $light -ge [Math]::Floor($pixels * 0.08)
             }
         } finally {
             $bitmap.Dispose()
