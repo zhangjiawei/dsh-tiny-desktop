@@ -40,6 +40,22 @@ try {
     probe.once('error',j);probe.once('exit',r);
   });
   assert.equal(code,0,'packaged native control status failed');
+} catch (error) {
+  // The disposable profile contains no user data. Keep CI evidence useful but
+  // still redact every authentication URL/token before printing the log.
+  try {
+    const raw = await readFile(join(root, "logs", "runtime.log"), "utf8");
+    const safe = raw
+      .replace(/([?&]token=)[^\s&"']+/gi, "$1<REDACTED>")
+      .replace(/("(?:api[_-]?key|authorization|password|secret|token)"\s*:\s*")[^"]+/gi, "$1<REDACTED>")
+      .split(/\r?\n/)
+      .slice(-120)
+      .join("\n");
+    console.error("SANITIZED fresh GUI runtime log:\n" + safe);
+  } catch (logError) {
+    console.error("Fresh GUI runtime log unavailable:", logError.message);
+  }
+  throw error;
 } finally {
   if(releaseChild.pid) await new Promise(r=>spawn('taskkill',['/PID',String(releaseChild.pid),'/T','/F'],{stdio:'ignore'}).on('exit',r));
 }
