@@ -4,37 +4,48 @@
 // binaries therefore never expose a CDP port. Temporary CI profiles only.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { createServer } from "node:net";
 
 assert.equal(process.platform, "win32", "requires native Windows WebView2");
 const [binaryArg, rootArg, qaBinaryArg] = process.argv.slice(2);
 assert.ok(binaryArg && rootArg && qaBinaryArg, "requires published exe, disposable smoke root and QA exe");
-const root = resolve(rootArg);
-assert.ok(process.env.RUNNER_TEMP && root.startsWith(resolve(process.env.RUNNER_TEMP) + "\\"), "CI temporary roots only");
+const smokeRoot = resolve(rootArg);
+assert.ok(process.env.RUNNER_TEMP && smokeRoot.startsWith(resolve(process.env.RUNNER_TEMP) + "\\"), "CI temporary roots only");
+// The exact packaged GUI must complete a truly fresh install without console
+// stdin or a system Node/dsh. This is the seam that reproduces user machines;
+// the earlier CLI smoke intentionally cannot cover a windowsgui process.
+const root = resolve(process.env.RUNNER_TEMP, "dsh-tiny-gui-install");
+assert.ok(root.startsWith(resolve(process.env.RUNNER_TEMP) + "\\"), "fresh GUI root must remain under RUNNER_TEMP");
+await rm(root, {recursive:true, force:true});
+await mkdir(root, {recursive:true});
 const settingsPath = join(root, "settings.json");
-// The preceding real DSH smoke populated this isolated runtime. Only this QA
-// profile uses deterministic language and disables auto-start for an idle test.
+const defaultCommand = "pnpm --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=node-pty --allow-build=koffi dlx @deepseek-ai/dsh@0.1.2-rc.1 web";
 const settings = {port:3080, proxy:"", lan:false, hideOnClose:true, trayOnly:true,
-  autoStart:false, alwaysOnTop:false, language:"en", command:"", registry:"https://registry.npmjs.org",
+  autoStart:true, alwaysOnTop:false, language:"en", command:defaultCommand, registry:"https://registry.npmjs.org",
   startupMinutes:60, width:1280, height:840};
 await writeFile(settingsPath, JSON.stringify(settings));
 const listener = createServer();
 const debugPort = 49223; // Must match the CI-only linker flag; fail on collision.
 await new Promise((r,j) => {listener.once('error',j);listener.listen(debugPort, "127.0.0.1", r);});
 await new Promise(r => listener.close(r));
-const releaseChild = spawn(resolve(binaryArg), [], {env:{...process.env,DSH_TINY_HOME:root},stdio:"ignore"});
+const privateRuntimeEnv = {...process.env, DSH_TINY_HOME:root,
+  PATH:process.env.PATH.split(';').filter(part=>!part.toLowerCase().includes('node')).join(';')};
+const releaseChild = spawn(resolve(binaryArg), [], {env:privateRuntimeEnv,stdio:"ignore"});
 try {
   const code = await new Promise((r,j)=>{
     releaseChild.once('error',j);
-    const probe=spawn('pwsh',['-NoProfile','-File','scripts/windows-control-ready.ps1','-AppProcessId',String(releaseChild.pid)],{stdio:'inherit'});
+    const probe=spawn('pwsh',['-NoProfile','-File','scripts/windows-control-ready.ps1','-AppProcessId',String(releaseChild.pid),'-ExpectedStatus','Running','-TimeoutSeconds','900'],{stdio:'inherit'});
     probe.once('error',j);probe.once('exit',r);
   });
   assert.equal(code,0,'packaged native control status failed');
 } finally {
   if(releaseChild.pid) await new Promise(r=>spawn('taskkill',['/PID',String(releaseChild.pid),'/T','/F'],{stdio:'ignore'}).on('exit',r));
 }
+console.log('PASS: packaged windowsgui app completed a fresh private install without console stdin or system Node/dsh');
+settings.autoStart = false;
+await writeFile(settingsPath, JSON.stringify(settings));
 const child = spawn(resolve(qaBinaryArg), [], {env:{...process.env, DSH_TINY_HOME:root}, stdio:"ignore"});
 let spawnError;
 child.on("error", e => {spawnError = e;});

@@ -9,6 +9,16 @@ test("control page forbids nested frames required by Linux origin policy", async
   assert.doesNotMatch(html, /<iframe\b/i);
 });
 
+test("quit action uses the shared navigation and confirmation design system", async () => {
+  const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
+  const css = await readFile(new URL("../frontend/src/style.css", import.meta.url), "utf8");
+  assert.match(html, /id="quit" class="exit-button"/);
+  assert.match(html, /id="quit-dialog" class="confirm-dialog" role="alertdialog"/);
+  assert.match(html, /class="confirm-content"/);
+  assert.match(html, /id="confirm-quit" class="danger-solid"/);
+  assert.match(css, /\.dialog-actions button\s*\{[^}]*min-width:\s*88px/s);
+});
+
 test("status polling never rewrites an open language picker", async () => {
   let value = "语言",
     writes = 0;

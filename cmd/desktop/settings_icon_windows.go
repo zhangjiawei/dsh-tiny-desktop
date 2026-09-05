@@ -2,52 +2,32 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
-	"golang.org/x/sys/windows"
-	"io/fs"
-	"path/filepath"
-	"unsafe"
+	"github.com/wailsapp/wails/v3/pkg/w32"
 )
 
-// Only the settings HWND gets a gear; the workspace and application's resource
-// icon retain their identity. Called once after the native event loop is ready.
-func installSettingsIcon(w *application.WebviewWindow, assets fs.FS, root string) (func(), error) {
-	data, err := fs.ReadFile(assets, "settings.ico")
+// installWindowIcon decodes the source PNG at the real system small/large icon
+// metrics. Loading a one-entry 256 px ICO with LoadImageW allowed Windows to
+// retain or badly scale the placeholder resource on some display/DPI setups.
+func installWindowIcon(w *application.WebviewWindow, data []byte) (func(), error) {
+	small, err := w32.CreateSmallHIconFromImage(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create small window icon: %w", err)
 	}
-	path := filepath.Join(root, "settings.ico")
-	if err = core.AtomicWrite(path, data, 0600); err != nil {
-		return nil, err
-	}
-	wide, err := windows.UTF16PtrFromString(path)
+	large, err := w32.CreateLargeHIconFromImage(data)
 	if err != nil {
-		return nil, err
-	}
-	user32 := windows.NewLazySystemDLL("user32.dll")
-	load := user32.NewProc("LoadImageW")
-	send := user32.NewProc("SendMessageW")
-	destroy := user32.NewProc("DestroyIcon")
-	var icons []uintptr
-	cleanup := func() {
-		for _, icon := range icons {
-			destroy.Call(icon)
-		}
-	}
-	for _, size := range []uintptr{16, 32} {
-		icon, _, e := load.Call(0, uintptr(unsafe.Pointer(wide)), 1, size, size, 0x10)
-		if icon == 0 {
-			cleanup()
-			return nil, fmt.Errorf("load settings icon: %w", e)
-		}
-		icons = append(icons, icon)
+		w32.DestroyIcon(small)
+		return nil, fmt.Errorf("create large window icon: %w", err)
 	}
 	application.InvokeSync(func() {
-		hwnd := uintptr(w.NativeWindow())
-		send.Call(hwnd, 0x80, 0, icons[0]) // WM_SETICON / ICON_SMALL
-		send.Call(hwnd, 0x80, 1, icons[1]) // WM_SETICON / ICON_BIG
+		hwnd := w32.HWND(uintptr(w.NativeWindow()))
+		w32.SendMessage(hwnd, w32.WM_SETICON, w32.ICON_SMALL, uintptr(small))
+		w32.SendMessage(hwnd, w32.WM_SETICON, w32.ICON_BIG, uintptr(large))
 	})
-	// Release our handles only after app.Run returns and native windows are gone.
-	return cleanup, nil
+	// Handles remain owned by this process until all native windows close.
+	return func() {
+		w32.DestroyIcon(small)
+		w32.DestroyIcon(large)
+	}, nil
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
 )
 
-var version = "0.2.4"
+var version = "0.2.5"
 
 // QA builds may override this via -ldflags to test in an isolated app instance.
 var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
@@ -61,6 +61,8 @@ func main() {
 	loadedURL := ""
 	var loadMu sync.Mutex
 	assets, _ := fs.Sub(frontend.Assets, "dist")
+	appIcon, _ := fs.ReadFile(assets, "icon.png")
+	settingsIcon, _ := fs.ReadFile(assets, "settings.png")
 	showWorkspace := func() {
 		loadMu.Lock()
 		defer loadMu.Unlock()
@@ -75,7 +77,7 @@ func main() {
 			showControl()
 		}
 	}
-	app = application.New(application.Options{Name: "DSH Tiny", Description: "An independent desktop home for DeepSeek Harness", Assets: application.AssetOptions{Handler: http.FileServer(http.FS(assets))},
+	app = application.New(application.Options{Name: "DSH Tiny", Description: "An independent desktop home for DeepSeek Harness", Icon: appIcon, Assets: application.AssetOptions{Handler: http.FileServer(http.FS(assets))},
 		Windows:        desktopWindowsOptions(),
 		SingleInstance: &application.SingleInstanceOptions{UniqueID: instanceID, OnSecondInstanceLaunch: func(application.SecondInstanceData) { showControl() }},
 		Mac:            application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: false},
@@ -199,8 +201,7 @@ func main() {
 				}
 			}()
 		}})
-	gear, _ := fs.ReadFile(assets, "settings.png")
-	control = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "control", Title: "DSH Tiny · 设置", Width: 1000, Height: 800, MinWidth: 820, MinHeight: 680, URL: "/", Linux: application.LinuxWindow{Icon: gear}, BackgroundColour: application.NewRGB(245, 246, 245)})
+	control = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "control", Title: "DSH Tiny · 设置", Width: 1000, Height: 800, MinWidth: 820, MinHeight: 680, URL: "/", Linux: application.LinuxWindow{Icon: settingsIcon}, BackgroundColour: application.NewRGB(245, 246, 245)})
 	// Start at a neutral document, not the wails:// control origin. WKWebView
 	// otherwise withholds DSH's SameSite=Strict cookie on the first redirect.
 	workspace = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "workspace", Title: "DSH Tiny", Width: settings.Width, Height: settings.Height, MinWidth: 760, MinHeight: 540, Hidden: true, AlwaysOnTop: settings.AlwaysOnTop, URL: "about:blank", KeyBindings: map[string]func(application.Window){"CmdOrCtrl+,": func(application.Window) { showControl() }, "CmdOrCtrl+R": func(w application.Window) { w.Reload() }}})
@@ -320,13 +321,25 @@ func main() {
 			case <-time.After(time.Second):
 				if !appearanceReady {
 					applyAppearance()
-					cleanup, e := installSettingsIcon(control, assets, p.Root)
-					if e == nil {
+					settingsCleanup, settingsErr := installWindowIcon(control, settingsIcon)
+					workspaceCleanup, workspaceErr := installWindowIcon(workspace, appIcon)
+					if settingsErr == nil && workspaceErr == nil {
 						iconMu.Lock()
-						iconCleanup = cleanup
+						iconCleanup = func() { settingsCleanup(); workspaceCleanup() }
 						iconMu.Unlock()
 					} else {
-						log.Print(core.Redact(e.Error()))
+						if settingsCleanup != nil {
+							settingsCleanup()
+						}
+						if workspaceCleanup != nil {
+							workspaceCleanup()
+						}
+						if settingsErr != nil {
+							log.Print(core.Redact(settingsErr.Error()))
+						}
+						if workspaceErr != nil {
+							log.Print(core.Redact(workspaceErr.Error()))
+						}
 					}
 					appearanceReady = true
 				}

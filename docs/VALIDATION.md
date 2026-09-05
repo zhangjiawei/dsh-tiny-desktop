@@ -1,5 +1,14 @@
 # 验证记录
 
+## v0.2.5 Windows GUI stdin、图标与退出界面
+
+- 用户提供的第二台 Windows 日志显示六插件已安装完成，随后默认 `pnpm dlx` 在 `@deepseek-ai/dsh-subprocess-local` 生命周期阶段由 pnpm 10.28.0 抛出 `Error: readStream must be readable`；进程为应用私有 pnpm/缓存，末行 Node 为系统 24.19.0，全局 dsh 没有出现在调用链中。
+- `TestSystemNodeMustMatchPinnedRuntime` 在修复前因缺少严格版本边界失败；修复后只接受 24.20.0。其他版本使用下载、SHA-256 校验后的私有 Node。`TestManagedStdinStaysOpenUntilCleanup` 验证匿名 stdin 在子进程运行期保持可读且仅在清理时 EOF；安装器与长期 DSH 进程均使用该边界，不继承用户输入。
+- Windows 窗口图标不再从单一 256 px ICO 经 `LoadImageW` 缩放，而是由 Wails/w32 按系统小/大图标指标从源 PNG 创建 HICON。原生 UIA 脚本新增像素检查，要求设置窗口的 16/32 图标同时包含浅底与绿色齿轮特征，不再把任意非零默认句柄记为通过。
+- 退出区采用和导航一致的按钮结构；确认弹窗使用 alertdialog 语义、42 px 警示图标、分隔操作栏及等宽按钮。本地 1000×800、820×680 隔离浏览器检查无横向溢出，后者弹窗 440×189 px，两按钮均 88×36 px；该浏览器预览只证明布局，不替代 Windows 原生 GUI。
+- 本地 Go 全量测试、核心 race/vet、模块 diff、前端测试/构建和 Windows amd64 GUI 交叉编译通过。最终六平台与 Windows 原生首次安装结果以下方发布工作流为准。
+- Mac 全新隔离目录在系统 Node 26.7.0 下明确下载并校验私有 Node 24.20.0，完成当次最新六插件、默认 pnpm dlx、认证就绪、三处真实 PTY 和自有进程停止；测试目录约 1.3 GiB、交叉编译 exe 及浏览器截图均在记录结果后删除。
+
 ## v0.2.4 安装恢复验证
 
 - 用户 Windows 日志在独立 profile 初始化阶段报 `ERR_PNPM_OUTDATED_LOCKFILE`，缺少六个依赖 specifier。使用独立临时目录保留旧 lock、删除 manifest 的六依赖，并保留相同 pnpm workspace 设置，官方 CLI 稳定复现完全相同的错误。仅添加 `--no-frozen-lockfile` 后同一夹具安装成功。没有改动全局 DSH、全局 pnpm 或原用户数据。

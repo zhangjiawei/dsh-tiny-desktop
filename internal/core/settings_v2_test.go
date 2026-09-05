@@ -182,3 +182,20 @@ func TestExistingInstallReusesReceiptWithoutRegistryAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSystemNodeMustMatchPinnedRuntime(t *testing.T) {
+	for _, tc := range []struct {
+		version string
+		want    bool
+	}{
+		{"24.20.0", true},
+		{"v24.20.0", true},
+		{"24.19.0", false},
+		{"24.21.0", false},
+		{"25.0.0", false},
+	} {
+		if got := systemNodeMatches(tc.version); got != tc.want {
+			t.Errorf("systemNodeMatches(%q) = %v, want %v", tc.version, got, tc.want)
+		}
+	}
+}

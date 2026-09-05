@@ -10,7 +10,7 @@ An independent, lightweight desktop home for [DeepSeek Harness](https://github.c
 - Windows：运行 `dsh-tiny.exe`，需要 Microsoft WebView2 Runtime。首版未做商业代码签名，可能显示 SmartScreen 提示。
 - Linux：运行 `./dsh-tiny`；需要 GTK4 / WebKitGTK 6.0（Ubuntu 24.04: `libgtk-4-1 libwebkitgtk-6.0-4`）。通知还需要 `notify-send`。
 
-首次运行会在应用专属目录下载运行环境和插件，需要联网与可用磁盘空间。已有兼容 Node 可复用；缺少可用 Node/npm 时下载 Node **24.20.0** 并验证内置 SHA-256。不会执行 sudo、不会全局安装或修改 PATH。
+首次运行会在应用专属目录下载运行环境和插件，需要联网与可用磁盘空间。仅复用精确匹配的 Node **24.20.0**；其他版本或缺少 Node/npm 时下载该固定版本并验证内置 SHA-256。不会执行 sudo、不会全局安装或修改 PATH，系统中是否已全局安装 dsh 不影响独立运行环境。
 
 默认端口 **3080**；自动检测占用，不终止占用者。被占用时选择随机可用端口，并在概览醒目显示“端口已占用，已使用随机端口 xxxx”，其中 xxxx 是实际启动成功的服务端口。安装、启动和错误状态均在“设置”窗口查看；通过系统托盘或 `Cmd/Ctrl+,` 打开。
 

@@ -37,9 +37,12 @@
         >
       </nav>
       <footer>
-        <button id="quit" class="exit-button" type="button">退出应用</button>
+        <button id="quit" class="exit-button" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H6.8A1.8 1.8 0 0 0 5 6.8v10.4A1.8 1.8 0 0 0 6.8 19H10m4-4 3-3-3-3m3 3H9"/></svg>
+          <span>退出应用</span>
+        </button>
         <span class="local-dot"></span><span>本地运行 · 数据独立</span
-        ><small>v0.2.4</small>
+        ><small>v0.2.5</small>
       </footer>
     </aside>
     <main>
@@ -256,10 +259,15 @@
       <canvas id="qr"></canvas
       ><button id="dialog-copy" class="primary">复制认证链接</button>
     </dialog>
-    <dialog id="quit-dialog" aria-labelledby="quit-title">
-      <h2 id="quit-title">退出 DSH Tiny？</h2>
-      <p>退出将停止 DSH 服务，正在运行的任务可能中断。关闭窗口则可继续在托盘运行。</p>
-      <div class="actions"><button id="cancel-quit">取消</button><button id="confirm-quit" class="danger">确认退出</button></div>
+    <dialog id="quit-dialog" class="confirm-dialog" role="alertdialog" aria-labelledby="quit-title" aria-describedby="quit-description">
+      <div class="confirm-content">
+        <span class="confirm-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8v5m0 3.2v.1M10.4 4.6 3.7 16.2A2 2 0 0 0 5.4 19h13.2a2 2 0 0 0 1.7-2.8L13.6 4.6a1.8 1.8 0 0 0-3.2 0Z"/></svg></span>
+        <div>
+          <h2 id="quit-title">退出 DSH Tiny？</h2>
+          <p id="quit-description">退出将停止 DSH 服务，正在运行的任务可能中断。关闭窗口则可继续在托盘运行。</p>
+        </div>
+      </div>
+      <div class="dialog-actions"><button id="cancel-quit">取消</button><button id="confirm-quit" class="danger-solid">确认退出</button></div>
     </dialog>
     <script type="module" src="/main.js"></script>
   </body>

@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 )
 
@@ -47,6 +46,11 @@ func (i *Installer) run(ctx context.Context, r Runtime, args ...string) error {
 	cmd.Env = i.environment(r)
 	cmd.Dir = i.Paths.Runtime
 	prepareProcess(cmd)
+	stdinStarted, closeStdin, err := attachManagedStdin(cmd)
+	if err != nil {
+		return err
+	}
+	defer closeStdin()
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
@@ -55,6 +59,7 @@ func (i *Installer) run(ctx context.Context, r Runtime, args ...string) error {
 	if err = cmd.Start(); err != nil {
 		return err
 	}
+	stdinStarted()
 	group, err := attachProcess(cmd)
 	if err != nil {
 		cmd.Process.Kill()
@@ -83,9 +88,7 @@ func (i *Installer) run(ctx context.Context, r Runtime, args ...string) error {
 func (i *Installer) node(ctx context.Context) (Runtime, error) {
 	if p, err := exec.LookPath("node"); err == nil {
 		b, e := exec.CommandContext(ctx, p, "--version").Output()
-		v := strings.Split(strings.TrimPrefix(strings.TrimSpace(string(b)), "v"), ".")
-		major, _ := strconv.Atoi(v[0])
-		if e == nil && major >= 24 {
+		if e == nil && systemNodeMatches(string(b)) {
 			real, _ := filepath.EvalSymlinks(p)
 			for _, npm := range []string{filepath.Join(filepath.Dir(real), "../lib/node_modules/npm/bin/npm-cli.js"), filepath.Join(filepath.Dir(real), "node_modules/npm/bin/npm-cli.js")} {
 				if _, e = os.Stat(npm); e == nil {
@@ -127,6 +130,13 @@ func (i *Installer) node(ctx context.Context) (Runtime, error) {
 		return Runtime{}, err
 	}
 	return Runtime{Node: node, NPM: npm}, nil
+}
+
+func systemNodeMatches(version string) bool {
+	// Node is part of the reproducible private runtime contract. Accepting an
+	// arbitrary 24.x system binary made Windows GUI failures depend on whatever
+	// patch release happened to be globally installed.
+	return strings.TrimPrefix(strings.TrimSpace(version), "v") == NodeVersion
 }
 func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	r, err := i.node(ctx)

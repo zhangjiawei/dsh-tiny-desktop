@@ -212,6 +212,11 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 	cmd.Env = i.environment(r)
 	cmd.Dir = m.paths.Data
 	prepareProcess(cmd)
+	stdinStarted, closeStdin, err := attachManagedStdin(cmd)
+	if err != nil {
+		return false, err
+	}
+	defer closeStdin()
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return false, err
@@ -220,6 +225,7 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 	if err = cmd.Start(); err != nil {
 		return false, err
 	}
+	stdinStarted()
 	group, err := attachProcess(cmd)
 	if err != nil {
 		cmd.Process.Kill()
