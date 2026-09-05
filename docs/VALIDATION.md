@@ -7,7 +7,11 @@
 - 正式 EXE 已由打包脚本使用 `-H windowsgui`，长期 DSH 及安装子进程也已有 `HideWindow`，因此用户在已安装全局 Node 的 Windows 上双击时出现的短暂控制台，定位为未套用隐藏策略的 `node --version` 系统运行时探测。该探测与 PowerShell 语言探测现统一经过 `backgroundCommandContext`；Windows 专属回归直接检查 `HideWindow` 与进程组标志。
 - v0.2.6 候选标签的 Windows x64 已成功完成全新安装、恢复、自定义 pnpm/PTY、正式打包并认证就绪，随后图标探针因 `ICON_SMALL=0`、`ICON_SMALL2` 与 large 均为有效自定义图标而误报。微软文档允许 `WM_GETICON` 返回 0 并要求使用后续回退；探针改为要求至少一个小图标槽存在、验证所有实际返回的槽和大图标。v0.2.6 未生成 Release，且不重写旧标签。
 - 修正图标探针后的 Windows x64 已通过正式 EXE 的状态与图标检查，随后 QA 设置保存真实返回 `Access is denied`。该路径同样是临时文件到正式设置文件的 Windows 原子重命名；`replaceFileWithRetry` 注入两次拒绝访问后成功的回归，保证旧设置不被原地截断，并覆盖 Defender/索引器的短暂 delete-sharing 占用。
-- 本地使用官方 Go 1.25.0 临时工具链运行核心回归通过；完整六平台、Windows 原生 GUI 与公开安装包校验以本节后续发布记录为准。临时工具链将在发布校验后删除。
+- 本地使用官方 Go 1.25.0 临时工具链通过 `go test -count=1 ./...`、核心 race/vet、模块 diff、前端测试/构建以及 Windows x64 GUI 交叉编译；编译结果由 `file` 确认为 PE32+ GUI 子系统。
+- 最终 main 工作流 [`33947477853`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33947477853) 六平台全部成功。Windows x64 与 Windows ARM64 都完成真实首次安装、中断安装恢复、局域网认证、自定义 pnpm dlx/PTY、正式打包和原生 WebView2 控制桥；这证明修复同时覆盖用户报告的平台和另一 Windows 架构。
+- 正式标签工作流 [`33948082437`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33948082437) 的六个平台 build 与 release job `101259120892` 全部成功，创建公开预览版 [`v0.2.7`](https://github.com/zhangjiawei/dsh-tiny-desktop/releases/tag/v0.2.7)。其中 Windows x64 job `101257676912`、Windows ARM64 job `101257676787` 均通过；v0.2.6 仍只保留失败候选标签，没有 Release，也未被重写。
+- 发布后通过公开 Release API 重新下载六个归档和 `SHA256SUMS.txt`；六个文件大小与发布元数据一致，SHA-256 全部匹配。解包确认 Mach-O x86_64/arm64、PE GUI x86-64/Aarch64、ELF x86-64/aarch64；两个 Mac 包的版本元数据均为 0.2.7，并通过 `codesign --verify --deep --strict`。macOS 仍是 ad-hoc 签名，Windows 仍未商业签名。
+- 发布验证结束后，仅清理本次任务明确创建的临时 Go 工具链、Windows 交叉编译文件、失败日志响应头、公开发布包与解压目录；工程源码、正式发布、用户 DSH 数据和共享缓存均保留。
 
 ## v0.2.5 Windows GUI stdin、图标与退出界面
 
