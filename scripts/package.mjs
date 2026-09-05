@@ -3,7 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdir, writeFile, copyFile } from "node:fs/promises";
 import sharp from "../frontend/node_modules/sharp/lib/index.js";
-const version = process.env.VERSION || "0.2.8";
+const version = process.env.VERSION || "0.2.9";
 if (!/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(version))
   throw Error("Invalid version");
 const arch =

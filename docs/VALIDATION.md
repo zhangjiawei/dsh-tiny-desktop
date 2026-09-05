@@ -1,11 +1,12 @@
 # 验证记录
 
-## v0.2.8 Android Opera 扫码认证上下文
+## v0.2.9 Android Opera 扫码认证上下文
 
 - 同一局域网、同一二维码在 Android Maxthon 正常，Opera 内置扫码入口返回 DSH authentication required；把“复制认证链接”直接粘贴到同一 Opera 地址栏则正常。这排除了二维码缺 token 及 HTTP 本身被浏览器拒绝，差异集中在扫码入口的重定向/Cookie 上下文。
 - DSH 的根 token 请求会签发按 authority 绑定、`HttpOnly; SameSite=Strict` 的会话 Cookie，并以 303 跳转到无 token 的 `/`。最小回归模拟扫码预览先访问二维码、再由新浏览器上下文接手最终地址，旧实现稳定得到 HTTP 401。
 - 局域网二维码改为 `/.dsh-tiny/share?token=…`：GET/HEAD 仅返回不可缓存的静态确认页且不访问 DSH；用户明确 POST 后才 303 到 DSH token 根地址。回归验证预览阶段 DSH 请求数为 0、页面正文不包含 token，并在当前浏览器 Cookie 容器内认证成功。
 - 正常启动隔离检查：`Start`、Installer、DSH 子进程、`VerifyLaunchURL`、工作空间窗口、浏览器打开及复制认证链接仍走原路径；只有运行后主动点击“分享二维码”才调用 `QRShareURL`。LAN 代理原有普通 HTTP、Host 边界和 WebSocket 回归继续通过；未启用 LAN 时二维码仍返回原本机地址。
+- v0.2.8 标签工作流 [`33950795124`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33950795124) 的 Windows x64 已完成正式 EXE 全新安装并进入 Running，32×32 大图标返回绿色 25、浅色 90 像素；16×16 `ICON_SMALL2` 返回绿色 5、浅色 0 像素。旧探针错误要求 16×16 也保留浅色微细节，因此拦截发布；v0.2.8 不重写标签、不生成 Release。修正后小图标仍必须包含至少 2% 的自定义绿色齿轮像素，大图标仍同时要求绿色和浅色细节，不会把中性系统占位图标放行。
 - 本地 `go test -count=1 ./...`、核心 race/vet、模块 diff、前端测试、TypeScript 与打包通过。正式六平台真实启动、Windows 原生 WebView2 与公开产物校验以本节后续发布记录为准。
 
 ## v0.2.7 Windows Node 目录发布恢复与启动闪屏

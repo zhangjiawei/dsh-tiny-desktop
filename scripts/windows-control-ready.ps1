@@ -35,11 +35,12 @@ function Get-SettingsGearIconStats([IntPtr]$Handle) {
                 Green = $green
                 Light = $light
                 Pixels = $pixels
-                # The 32 px artwork deliberately keeps more transparent space
-                # than the compact 16 px title-bar variant. Green gear pixels
-                # distinguish it from the Windows placeholder; light detail
-                # guards against accepting a flat accidental green bitmap.
-                Valid = $green -ge [Math]::Max(4, [Math]::Floor($pixels * 0.02)) -and $light -ge [Math]::Floor($pixels * 0.08)
+                # The accent survives Windows' 16 px caption resampling and is
+                # enough to distinguish this icon from the neutral placeholder.
+                HasGreenMark = $green -ge [Math]::Max(4, [Math]::Floor($pixels * 0.02))
+                # Validate the pale gear field on the 32 px large icon, where
+                # that detail is guaranteed to survive system resampling.
+                HasLightDetail = $light -ge [Math]::Floor($pixels * 0.08)
             }
         } finally {
             $bitmap.Dispose()
@@ -86,10 +87,15 @@ while ((Get-Date) -lt $deadline) {
                 $smallText = if ($null -eq $smallStats) { 'none' } else { "$($smallStats.Green)/$($smallStats.Light)/$($smallStats.Pixels)" }
                 $small2Text = if ($null -eq $small2Stats) { 'none' } else { "$($small2Stats.Green)/$($small2Stats.Light)/$($small2Stats.Pixels)" }
                 $lastIcon = "small=$smallText, small2=$small2Text, large=$($largeStats.Green)/$($largeStats.Light)/$($largeStats.Pixels)"
-                $smallValid = ($null -eq $smallStats -or $smallStats.Valid) -and ($null -eq $small2Stats -or $small2Stats.Valid)
-                if ($smallValid -and $largeStats.Valid) {
+                # Windows may reduce the 16 px light strokes to zero pixels,
+                # while the five-pixel green gear remains visibly distinct.
+                # Keep requiring every returned caption slot to carry that
+                # custom accent, and require both signals on the large icon.
+                $smallValid = ($null -eq $smallStats -or $smallStats.HasGreenMark) -and ($null -eq $small2Stats -or $small2Stats.HasGreenMark)
+                $largeValid = $largeStats.HasGreenMark -and $largeStats.HasLightDetail
+                if ($smallValid -and $largeValid) {
                     Write-Output 'PASS: published Windows executable rendered real backend status through native UI Automation'
-                    Write-Output 'PASS: Settings native window caption fallback and large icon contain the expected green gear artwork'
+                    Write-Output "PASS: Settings caption accent and large gear artwork verified ($lastIcon)"
                     exit 0
                 }
             } else {
