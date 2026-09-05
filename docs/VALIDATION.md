@@ -7,6 +7,9 @@
 - Windows 原生发布探针新增稳定状态检查：最小化后原生窗口必须持续可见且为 iconic，点关闭后必须隐藏但进程存活，再次显示必须成功。macOS `tray-cycle` QA 同步改为最小化保留 regular activation policy、关闭切换 accessory policy。
 - 本机 macOS 原生 QA 在执行时检测到系统锁屏，按验证规则返回 `BLOCKED`，不将锁屏下的辅助功能结果记为通过。Swift 脚本已通过类型检查；跨平台正式结果以后续 CI 记录为准。
 - 本地 `go test -count=1 ./...`、核心 race、`go vet ./...`、模块 diff、前端 4 项测试、TypeScript/前端构建和 Swift 类型检查全部通过。锁屏 QA 专用进程已终止，其独立设置、候选二进制及临时目录已删除，未启动 DSH 安装、未修改用户数据。
+- `main` 工作流 [33954635098](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33954635098) 的六个平台构建全部成功；其中 Windows x64 原生门禁任务 `101275593539`、Windows ARM64 任务 `101275593726` 均通过正式 EXE 的 WebView2 状态、图标、最小化、关闭隐藏、进程存活与恢复检查。
+- 标签工作流 [33955235644](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33955235644) 再次完成六个平台构建及发布任务；Windows x64 任务 `101277264966`、Windows ARM64 任务 `101277264855` 的同一原生门禁均成功。
+- 从未登录的公开发布页重新下载 v0.2.10 的六个归档和 `SHA256SUMS.txt`：全部哈希通过；Windows 为 x86-64/AArch64 GUI PE，Linux 为 x86-64/AArch64 ELF，macOS 为 x86_64/arm64 Mach-O，两个 App 的 `CFBundleShortVersionString` 均为 `0.2.10` 且 `codesign --verify --deep --strict` 通过。下载、解压和本机 QA 临时目录均已删除。
 
 ## v0.2.9 Android Opera 扫码认证上下文
 
