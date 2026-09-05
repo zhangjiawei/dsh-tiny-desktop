@@ -12,6 +12,7 @@
 - 首轮 main 工作流 `33938094155` 的 Mac/Linux 四平台通过；Windows x64 普通首装、旧锁恢复、自定义 pnpm dlx 和打包通过，但新增正式 GUI 用例在 15 分钟后只报告“Running 或齿轮未满足”的合并超时，证据不足以区分安装与图标。后续探针分离阶段状态和三种图标句柄/像素统计，并在进入 Needs attention 或 Running 后图标异常时快速失败；该轮不发布。
 - 诊断工作流 `33939650227` 的 Windows x64 脱敏日志复现到私有 Node 24.20.0 与 pnpm 10.28.0：六插件成功后，默认 dlx 安装的 `@deepseek-ai/dsh-subprocess-local` postinstall 已启动并立刻在 pnpm `byline(proc.stdout)` 抛出 `readStream must be readable`。这排除了全局 dsh、旧 Node、图标探针和六插件安装；该轮仅用于证据，不发布。
 - 修复后工作流 `33940496161` 的正式 Windows EXE 已完成全新私有安装并进入 Running；原生窗口返回的 small/small2 均为 49 个绿色、195 个浅色像素（256 总像素），证明标题栏及高 DPI fallback 已使用齿轮图。large 为 25 个绿色、90 个浅色像素（1024 总像素），旧探针因要求 25% 不透明浅色背景而误判透明留白设计；门槛改为同时检查至少 2% 绿色齿轮与 8% 浅色细节，仍能排除系统占位图和纯色色块。
+- 最终 main 工作流 [`33940800573`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33940800573) 六平台全部通过：Windows x64 job `101237785582` 与 Windows ARM64 job `101237785598` 均通过真实首次安装、旧锁恢复、局域网认证、自定义 dlx/PTY、正式打包及原生 WebView2 控制桥；其余 macOS Intel/ARM64、Linux x64/ARM64 四个平台也全部成功。main 事件的 release job 按设计跳过，正式发布只由版本标签触发。
 
 ## v0.2.4 安装恢复验证
 
