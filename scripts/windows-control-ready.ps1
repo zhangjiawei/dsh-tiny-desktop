@@ -74,14 +74,22 @@ while ((Get-Date) -lt $deadline) {
             $small = [SettingsIconProbe]::SendMessageW($hwnd, 0x7F, [IntPtr]0, [IntPtr]0)
             $large = [SettingsIconProbe]::SendMessageW($hwnd, 0x7F, [IntPtr]1, [IntPtr]0)
             $small2 = [SettingsIconProbe]::SendMessageW($hwnd, 0x7F, [IntPtr]2, [IntPtr]0)
-            if ($small -ne [IntPtr]::Zero -and $small2 -ne [IntPtr]::Zero -and $large -ne [IntPtr]::Zero) {
-                $smallStats = Get-SettingsGearIconStats $small
-                $small2Stats = Get-SettingsGearIconStats $small2
+            # WM_GETICON explicitly permits a zero result and documents the
+            # alternate small-icon/class fallback. Different Windows builds
+            # may expose the same application-provided caption icon through
+            # ICON_SMALL, ICON_SMALL2, or both; validate every returned handle
+            # without incorrectly requiring both slots to exist.
+            if (($small -ne [IntPtr]::Zero -or $small2 -ne [IntPtr]::Zero) -and $large -ne [IntPtr]::Zero) {
+                $smallStats = if ($small -ne [IntPtr]::Zero) { Get-SettingsGearIconStats $small } else { $null }
+                $small2Stats = if ($small2 -ne [IntPtr]::Zero) { Get-SettingsGearIconStats $small2 } else { $null }
                 $largeStats = Get-SettingsGearIconStats $large
-                $lastIcon = "small=$($smallStats.Green)/$($smallStats.Light)/$($smallStats.Pixels), small2=$($small2Stats.Green)/$($small2Stats.Light)/$($small2Stats.Pixels), large=$($largeStats.Green)/$($largeStats.Light)/$($largeStats.Pixels)"
-                if ($smallStats.Valid -and $small2Stats.Valid -and $largeStats.Valid) {
+                $smallText = if ($null -eq $smallStats) { 'none' } else { "$($smallStats.Green)/$($smallStats.Light)/$($smallStats.Pixels)" }
+                $small2Text = if ($null -eq $small2Stats) { 'none' } else { "$($small2Stats.Green)/$($small2Stats.Light)/$($small2Stats.Pixels)" }
+                $lastIcon = "small=$smallText, small2=$small2Text, large=$($largeStats.Green)/$($largeStats.Light)/$($largeStats.Pixels)"
+                $smallValid = ($null -eq $smallStats -or $smallStats.Valid) -and ($null -eq $small2Stats -or $small2Stats.Valid)
+                if ($smallValid -and $largeStats.Valid) {
                     Write-Output 'PASS: published Windows executable rendered real backend status through native UI Automation'
-                    Write-Output 'PASS: Settings native window small/small2/large icons contain the expected green gear artwork'
+                    Write-Output 'PASS: Settings native window caption fallback and large icon contain the expected green gear artwork'
                     exit 0
                 }
             } else {
