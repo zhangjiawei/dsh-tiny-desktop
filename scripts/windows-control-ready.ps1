@@ -13,8 +13,33 @@ using System.Runtime.InteropServices;
 public static class SettingsIconProbe {
     [DllImport("user32.dll", CharSet=CharSet.Unicode)]
     public static extern IntPtr SendMessageW(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindowAsync(IntPtr hwnd, int command);
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hwnd);
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hwnd);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)]
+    public static extern bool PostMessageW(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
 }
 '@
+function Wait-NativeWindowState([IntPtr]$Handle, [bool]$Visible, [bool]$Iconic, [int]$Seconds = 5) {
+    $end = (Get-Date).AddSeconds($Seconds)
+    $stableSince = $null
+    while ((Get-Date) -lt $end) {
+        $matches = [SettingsIconProbe]::IsWindowVisible($Handle) -eq $Visible -and [SettingsIconProbe]::IsIconic($Handle) -eq $Iconic
+        if ($matches) {
+            if ($null -eq $stableSince) { $stableSince = Get-Date }
+            # Require a stable state so an asynchronous hide-to-tray callback
+            # cannot pass through the native minimised state momentarily.
+            if (((Get-Date) - $stableSince).TotalMilliseconds -ge 750) { return $true }
+        } else {
+            $stableSince = $null
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    return $false
+}
 function Get-SettingsGearIconStats([IntPtr]$Handle) {
     $source = [System.Drawing.Icon]::FromHandle($Handle)
     $icon = [System.Drawing.Icon]$source.Clone()
@@ -94,8 +119,31 @@ while ((Get-Date) -lt $deadline) {
                 $smallValid = ($null -eq $smallStats -or $smallStats.HasGreenMark) -and ($null -eq $small2Stats -or $small2Stats.HasGreenMark)
                 $largeValid = $largeStats.HasGreenMark -and $largeStats.HasLightDetail
                 if ($smallValid -and $largeValid) {
+                    # Exercise the user's exact native lifecycle. Minimise must
+                    # remain a visible taskbar window; WM_CLOSE must enter the
+                    # configured tray-only state without terminating the app.
+                    [void][SettingsIconProbe]::ShowWindowAsync($hwnd, 6)
+                    if (-not (Wait-NativeWindowState $hwnd $true $true)) {
+                        throw 'Published Windows executable did not keep its taskbar window when minimised'
+                    }
+                    [void][SettingsIconProbe]::ShowWindowAsync($hwnd, 9)
+                    if (-not (Wait-NativeWindowState $hwnd $true $false)) {
+                        throw 'Published Windows executable did not restore after native minimise'
+                    }
+                    [void][SettingsIconProbe]::PostMessageW($hwnd, 0x0010, [IntPtr]0, [IntPtr]0)
+                    if (-not (Wait-NativeWindowState $hwnd $false $false)) {
+                        throw 'Published Windows executable did not hide to the tray after close'
+                    }
+                    if ($null -eq (Get-Process -Id $AppProcessId -ErrorAction SilentlyContinue)) {
+                        throw 'Published Windows executable exited instead of remaining in the tray after close'
+                    }
+                    [void][SettingsIconProbe]::ShowWindowAsync($hwnd, 9)
+                    if (-not (Wait-NativeWindowState $hwnd $true $false)) {
+                        throw 'Published Windows executable did not restore from the tray-only state'
+                    }
                     Write-Output 'PASS: published Windows executable rendered real backend status through native UI Automation'
                     Write-Output "PASS: Settings caption accent and large gear artwork verified ($lastIcon)"
+                    Write-Output 'PASS: native minimise keeps taskbar; close hides to tray without exiting; restore succeeds'
                     exit 0
                 }
             } else {

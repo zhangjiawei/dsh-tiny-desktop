@@ -1,5 +1,13 @@
 # 验证记录
 
+## v0.2.10 最小化与关闭窗口语义
+
+- `TestWindowLifecycleKeepsMinimiseNative` 直接检查 `main.go` 的真实事件绑定：修复前稳定报错 `minimise is wired to hideToTray`；移除该绑定后通过，并额外要求设置窗口与工作空间的两个关闭钩子仍保留 `hideToTray`。
+- 根因是“仅驻留托盘”将 `WindowMinimise` 和 `WindowClosing` 都路由到 `hideToTray`，把两种桌面动作错误合并。现在最小化不注册额外处理，完全保留系统原生 Dock/任务栏行为；点 × 才根据原开关进入托盘。
+- Windows 原生发布探针新增稳定状态检查：最小化后原生窗口必须持续可见且为 iconic，点关闭后必须隐藏但进程存活，再次显示必须成功。macOS `tray-cycle` QA 同步改为最小化保留 regular activation policy、关闭切换 accessory policy。
+- 本机 macOS 原生 QA 在执行时检测到系统锁屏，按验证规则返回 `BLOCKED`，不将锁屏下的辅助功能结果记为通过。Swift 脚本已通过类型检查；跨平台正式结果以后续 CI 记录为准。
+- 本地 `go test -count=1 ./...`、核心 race、`go vet ./...`、模块 diff、前端 4 项测试、TypeScript/前端构建和 Swift 类型检查全部通过。锁屏 QA 专用进程已终止，其独立设置、候选二进制及临时目录已删除，未启动 DSH 安装、未修改用户数据。
+
 ## v0.2.9 Android Opera 扫码认证上下文
 
 - 同一局域网、同一二维码在 Android Maxthon 正常，Opera 内置扫码入口返回 DSH authentication required；把“复制认证链接”直接粘贴到同一 Opera 地址栏则正常。这排除了二维码缺 token 及 HTTP 本身被浏览器拒绝，差异集中在扫码入口的重定向/Cookie 上下文。

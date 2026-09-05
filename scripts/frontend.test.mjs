@@ -19,6 +19,14 @@ test("quit action uses the shared navigation and confirmation design system", as
   assert.match(css, /\.dialog-actions button\s*\{[^}]*min-width:\s*88px/s);
 });
 
+test("tray setting distinguishes native minimize from close-to-tray", async () => {
+  const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
+  const i18n = await readFile(new URL("../frontend/src/i18n.ts", import.meta.url), "utf8");
+  assert.match(html, /点 × 关闭时隐藏 Dock \/ 任务栏图标；最小化仍保留。/);
+  assert.match(i18n, /minimizing keeps the native entry/);
+  assert.doesNotMatch(html, /最小化或关闭时隐藏 Dock/);
+});
+
 test("status polling never rewrites an open language picker", async () => {
   let value = "语言",
     writes = 0;

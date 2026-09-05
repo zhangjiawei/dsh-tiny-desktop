@@ -76,18 +76,42 @@ if action == "tray-cycle" {
           && ($0[kCGWindowLayer as String] as? Int) == 0
       }.count
   }
-  func waitFor(_ hidden: Bool) {
+  func waitForVisible() {
     let end = Date().addingTimeInterval(5)
     while Date() < end {
       let running = NSRunningApplication(processIdentifier: pid)
       expect(
         running != nil && running?.isTerminated == false,
         "application crashed during tray transition")
-      if visible() == 0 && running?.activationPolicy == .accessory && hidden { return }
-      if visible() > 0 && running?.activationPolicy == .regular && !hidden { return }
+      if visible() > 0 && running?.activationPolicy == .regular { return }
       RunLoop.current.run(until: Date().addingTimeInterval(0.1))
     }
-    expect(false, hidden ? "windows/Dock did not hide" : "window/Dock did not restore")
+    expect(false, "window/Dock did not restore")
+  }
+  func waitForNativeMinimise(_ window: AXUIElement) {
+    let end = Date().addingTimeInterval(5)
+    while Date() < end {
+      let running = NSRunningApplication(processIdentifier: pid)
+      expect(
+        running != nil && running?.isTerminated == false,
+        "application crashed during native minimise")
+      let minimised = attr(window, "AXMinimized") as? Bool ?? false
+      if minimised && visible() == 0 && running?.activationPolicy == .regular { return }
+      RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+    }
+    expect(false, "minimise did not preserve the native Dock entry")
+  }
+  func waitForTrayHidden() {
+    let end = Date().addingTimeInterval(5)
+    while Date() < end {
+      let running = NSRunningApplication(processIdentifier: pid)
+      expect(
+        running != nil && running?.isTerminated == false,
+        "application crashed during close-to-tray")
+      if visible() == 0 && running?.activationPolicy == .accessory { return }
+      RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+    }
+    expect(false, "close did not hide windows/Dock into the tray")
   }
   guard let control, let extras = attr(app, "AXExtrasMenuBar"),
     let item = nodes(extras as! AXUIElement).first(where: {
@@ -100,23 +124,24 @@ if action == "tray-cycle" {
   expect(
     AXUIElementSetAttributeValue(control, "AXMinimized" as CFString, kCFBooleanTrue) == .success,
     "minimize rejected")
-  waitFor(true)
+  waitForNativeMinimise(control)
   expect(pressTray(item), "tray click unavailable")
-  waitFor(false)
+  waitForVisible()
   let restored = attr(app, "AXWindows") as? [AXUIElement] ?? []
-  guard let workspace = restored.first(where: { title($0) == "DSH Tiny" }),
-    let close = attr(workspace, "AXCloseButton")
+  guard let restoredWindow = restored.first(where: {
+    title($0) == "DSH Tiny" || title($0).contains("设置") || title($0).contains("Settings")
+  }), let close = attr(restoredWindow, "AXCloseButton")
   else {
-    print("FAIL: workspace was not restored")
+    print("FAIL: no window was restored")
     exit(1)
   }
   expect(
     AXUIElementPerformAction(close as! AXUIElement, kAXPressAction as CFString) == .success,
     "close rejected")
-  waitFor(true)
+  waitForTrayHidden()
   expect(pressTray(item), "second tray click unavailable")
-  waitFor(false)
-  print("PASS: minimize → tray-only → restore → close → tray-only → restore (same app process)")
+  waitForVisible()
+  print("PASS: minimize keeps Dock → tray restore → close hides to tray → restore (same app process)")
   exit(0)
 }
 if action == "quit" {

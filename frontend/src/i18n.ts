@@ -35,8 +35,8 @@ const en: Record<string, string> = {
   "跟随系统或手动选择，仅影响桌面外壳。":
     "Follow your system or choose a language for the desktop shell.",
   仅驻留托盘: "Tray-only mode",
-  "最小化或关闭时隐藏 Dock / 任务栏图标，点击托盘恢复。":
-    "Hide from Dock / taskbar when minimized or closed. Click the tray to restore.",
+  "点 × 关闭时隐藏 Dock / 任务栏图标；最小化仍保留。":
+    "Hide from the Dock / taskbar when closed with ×; minimizing keeps the native entry.",
   关闭窗口后继续运行: "Keep running after closing",
   "关闭工作空间窗口时不停止 DSH 服务。":
     "Closing the workspace window keeps DSH running.",
@@ -99,8 +99,8 @@ const en: Record<string, string> = {
   简体中文: "简体中文",
   "默认跟随系统语言。仅控制桌面外壳，DSH 工作空间语言由其自身设置管理。":
     "Follows the system by default. This controls the desktop shell; the DSH workspace has its own language settings.",
-  "最小化或关闭时从 Dock / 任务栏隐藏":
-    "Hide from Dock / taskbar when minimized or closed",
+  "关闭时从 Dock / 任务栏隐藏":
+    "Hide from Dock / taskbar when closed",
   "开启后仅保留菜单栏 / 系统托盘图标。单击恢复窗口，右键打开菜单；不会停止 DSH。":
     "Keep only the menu bar / system tray icon. Click to restore; right-click for the menu. DSH keeps running.",
   自定义启动命令: "Custom launch command",

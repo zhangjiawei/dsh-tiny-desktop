@@ -17,7 +17,7 @@ import (
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
 )
 
-var version = "0.2.9"
+var version = "0.2.10"
 
 // QA builds may override this via -ldflags to test in an isolated app instance.
 var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
@@ -222,13 +222,10 @@ func main() {
 		}
 		e.Cancel()
 	})
-	for _, w := range []*application.WebviewWindow{control, workspace} {
-		w.OnWindowEvent(events.Common.WindowMinimise, func(*application.WindowEvent) {
-			if manager.Snapshot().Settings.TrayOnly {
-				hideToTray()
-			}
-		})
-	}
+	// Leave minimise entirely to the native window manager. A minimised window
+	// must keep its Dock/taskbar entry; only an explicit close enters tray-only
+	// mode. Registering a minimise callback here previously collapsed both
+	// actions into the same behaviour.
 	workspace.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		s := manager.Snapshot().Settings
 		if s.TrayOnly {
