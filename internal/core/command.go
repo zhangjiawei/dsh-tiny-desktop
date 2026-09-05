@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"net"
 	"os/exec"
@@ -169,4 +170,13 @@ func (i *Installer) launchCommand(r Runtime) (string, []string, error) {
 	}
 	executable, err := exec.LookPath(name)
 	return executable, args, err
+}
+
+// backgroundCommandContext is used for short-lived helper probes. In a GUI
+// application every Windows child must inherit the no-console process policy,
+// including commands that only read a version or locale.
+func backgroundCommandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, name, args...)
+	prepareProcess(cmd)
+	return cmd
 }

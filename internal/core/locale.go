@@ -31,8 +31,7 @@ func SystemLanguage() string {
 			return parts[0]
 		}
 	} else if runtime.GOOS == "windows" {
-		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", "[cultureinfo]::CurrentUICulture.Name")
-		prepareProcess(cmd)
+		cmd := backgroundCommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", "[cultureinfo]::CurrentUICulture.Name")
 		b, _ = cmd.Output()
 		if len(b) > 0 {
 			return strings.TrimSpace(string(b))

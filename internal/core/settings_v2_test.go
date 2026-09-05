@@ -184,11 +184,13 @@ func TestExistingInstallReusesReceiptWithoutRegistryAccess(t *testing.T) {
 	}
 	folder := strings.TrimSuffix(strings.TrimSuffix(filepath.Base(asset.URL), ".tar.gz"), ".zip")
 	node := filepath.Join(p.Runtime, folder, "bin", exeName("node"))
+	npm := filepath.Join(p.Runtime, folder, "lib", "node_modules", "npm", "bin", "npm-cli.js")
 	if runtime.GOOS == "windows" {
 		node = filepath.Join(p.Runtime, folder, "node.exe")
+		npm = filepath.Join(p.Runtime, folder, "node_modules", "npm", "bin", "npm-cli.js")
 	}
 	cli := filepath.Join(p.Runtime, "dsh/node_modules/@deepseek-ai/dsh/lib/bin.js")
-	for _, path := range []string{node, cli} {
+	for _, path := range []string{node, npm, cli} {
 		if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 			t.Fatal(err)
 		}
@@ -228,5 +230,133 @@ func TestSystemNodeMustMatchPinnedRuntime(t *testing.T) {
 		if got := systemNodeMatches(tc.version); got != tc.want {
 			t.Errorf("systemNodeMatches(%q) = %v, want %v", tc.version, got, tc.want)
 		}
+	}
+}
+
+func TestNodePublishRetriesTransientWindowsAccessDenied(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "stage", "node-v24")
+	target := filepath.Join(root, "node-v24")
+	executable := filepath.Join(target, "node.exe")
+	npm := filepath.Join(target, "node_modules", "npm", "bin", "npm-cli.js")
+	if err := os.MkdirAll(source, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for path, contents := range map[string]string{
+		filepath.Join(source, "node.exe"):                                 "node",
+		filepath.Join(source, "node_modules", "npm", "bin", "npm-cli.js"): "npm",
+	} {
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(contents), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	attempts := 0
+	rename := func(oldPath, newPath string) error {
+		attempts++
+		if attempts < 3 {
+			return &os.PathError{Op: "rename", Path: oldPath + " -> " + newPath, Err: os.ErrPermission}
+		}
+		return os.Rename(oldPath, newPath)
+	}
+	if err := publishNodeRuntime(source, target, []string{executable, npm}, rename, func(time.Duration) {}); err != nil {
+		t.Fatal(err)
+	}
+	if attempts != 3 {
+		t.Fatalf("rename attempts = %d, want 3", attempts)
+	}
+}
+
+func TestNodePublishReplacesIncompleteTarget(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "stage", "node-v24")
+	target := filepath.Join(root, "node-v24")
+	executable := filepath.Join(target, "node.exe")
+	npm := filepath.Join(target, "node_modules", "npm", "bin", "npm-cli.js")
+	for _, dir := range []string{source, target} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for path, contents := range map[string]string{
+		filepath.Join(source, "node.exe"):                                 "node",
+		filepath.Join(source, "node_modules", "npm", "bin", "npm-cli.js"): "npm",
+		filepath.Join(target, "node.exe"):                                 "partial-node",
+	} {
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(contents), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(target, "interrupted"), []byte("partial"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := publishNodeRuntime(source, target, []string{executable, npm}, os.Rename, func(time.Duration) {}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(executable); err != nil || string(got) != "node" {
+		t.Fatalf("published executable = %q, %v", got, err)
+	}
+	if matches, err := filepath.Glob(target + ".incomplete-*"); err != nil || len(matches) != 0 {
+		t.Fatalf("incomplete runtime backups = %v, %v", matches, err)
+	}
+}
+
+func TestNodePublishRestoresIncompleteTargetWhenReplacementFails(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "stage", "node-v24")
+	target := filepath.Join(root, "node-v24")
+	executable := filepath.Join(target, "node.exe")
+	npm := filepath.Join(target, "node_modules", "npm", "bin", "npm-cli.js")
+	for _, dir := range []string{source, target} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	marker := filepath.Join(target, "interrupted")
+	if err := os.WriteFile(marker, []byte("partial"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	rename := func(oldPath, newPath string) error {
+		if oldPath == source {
+			return &os.PathError{Op: "rename", Path: oldPath + " -> " + newPath, Err: os.ErrPermission}
+		}
+		return os.Rename(oldPath, newPath)
+	}
+	if err := publishNodeRuntime(source, target, []string{executable, npm}, rename, func(time.Duration) {}); err == nil {
+		t.Fatal("expected permanent publish failure")
+	}
+	if got, err := os.ReadFile(marker); err != nil || string(got) != "partial" {
+		t.Fatalf("restored marker = %q, %v", got, err)
+	}
+}
+
+func TestNodePublishRejectsIncompleteExtractionBeforeMovingTarget(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "stage", "node-v24")
+	target := filepath.Join(root, "node-v24")
+	executable := filepath.Join(target, "node.exe")
+	npm := filepath.Join(target, "node_modules", "npm", "bin", "npm-cli.js")
+	for _, dir := range []string{source, target} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	marker := filepath.Join(target, "interrupted")
+	if err := os.WriteFile(marker, []byte("partial"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "node.exe"), []byte("node"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := publishNodeRuntime(source, target, []string{executable, npm}, os.Rename, func(time.Duration) {}); err == nil {
+		t.Fatal("expected incomplete extraction failure")
+	}
+	if got, err := os.ReadFile(marker); err != nil || string(got) != "partial" {
+		t.Fatalf("target changed before source validation: %q, %v", got, err)
 	}
 }

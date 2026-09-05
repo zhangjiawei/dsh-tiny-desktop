@@ -1,3 +1,14 @@
+v0.2.6 公开预览版：恢复 Windows 中断安装，并消除系统 Node 探测闪屏。
+
+- 独立 Node 解压后的目录发布新增有界重试，覆盖 Windows Defender、索引器或文件系统短暂返回 `Access is denied` 的情况。
+- 检测到上次重启留下的同名半成品 Node 目录时，先移动为应用目录内的可恢复备份；新运行时验证可用后才清理备份。若替换最终失败，会恢复原目录，不触碰 DSH 数据、全局 Node 或全局 DSH。
+- Windows 对全局 Node 的 `node --version` 探测与系统语言 PowerShell 探测统一使用隐藏子进程策略，避免双击 GUI EXE 时短暂闪出控制台。正式包继续使用 PE GUI 子系统，长期 DSH/安装子进程也保持隐藏。
+- 保留 v0.2.5 的 Windows 默认命令稳定性、真实网卡选择、原生窗口图标和统一退出界面。
+
+升级请先从托盘或设置中真正退出旧版，再替换程序。保留独立数据目录。macOS 仍为 ad-hoc 签名、Windows 未商业签名。
+
+## v0.2.5
+
 v0.2.5 公开预览版：修复 Windows 无控制台首次启动，并统一窗口图标与退出界面。
 
 - Windows GUI 启动的受管 Node/pnpm 子进程使用应用专属的可读 stdin；针对 pnpm 10.28.0 无控制台执行 DSH 极短 postinstall 时仍存在的输出管道竞态，Windows 上精确匹配默认 `pnpm dlx` 命令时复用已经安装并重建好的同版本私有 DSH。真正自定义的命令仍按配置执行。

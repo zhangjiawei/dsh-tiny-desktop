@@ -1,5 +1,12 @@
 # 验证记录
 
+## v0.2.6 Windows Node 目录发布恢复与启动闪屏
+
+- 用户日志在 Node 24.20.0 解压完成后的同卷目录重命名阶段返回 Windows `Access is denied`。原实现仅执行一次 `os.Rename`，既不重试短暂文件占用，也不能处理系统重启留下的同名半成品目标目录。
+- `TestNodePublishRetriesTransientWindowsAccessDenied` 注入前两次拒绝访问，确认第三次重试发布成功；`TestNodePublishReplacesIncompleteTarget` 验证同名半成品先隔离、新运行时就位后再清理；`TestNodePublishRestoresIncompleteTargetWhenReplacementFails` 验证连续失败时恢复旧目录，而不是丢失现场。
+- 正式 EXE 已由打包脚本使用 `-H windowsgui`，长期 DSH 及安装子进程也已有 `HideWindow`，因此用户在已安装全局 Node 的 Windows 上双击时出现的短暂控制台，定位为未套用隐藏策略的 `node --version` 系统运行时探测。该探测与 PowerShell 语言探测现统一经过 `backgroundCommandContext`；Windows 专属回归直接检查 `HideWindow` 与进程组标志。
+- 本地使用官方 Go 1.25.0 临时工具链运行核心回归通过；完整六平台、Windows 原生 GUI 与公开安装包校验以本节后续发布记录为准。临时工具链将在发布校验后删除。
+
 ## v0.2.5 Windows GUI stdin、图标与退出界面
 
 - 用户提供的第二台 Windows 日志显示六插件已安装完成，随后默认 `pnpm dlx` 在 `@deepseek-ai/dsh-subprocess-local` 生命周期阶段由 pnpm 10.28.0 抛出 `Error: readStream must be readable`；进程为应用私有 pnpm/缓存，末行 Node 为系统 24.19.0，全局 dsh 没有出现在调用链中。

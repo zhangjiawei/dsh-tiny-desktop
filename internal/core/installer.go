@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 type Runtime struct{ Node, NPM, CLI, Bin string }
@@ -87,7 +88,9 @@ func (i *Installer) run(ctx context.Context, r Runtime, args ...string) error {
 }
 func (i *Installer) node(ctx context.Context) (Runtime, error) {
 	if p, err := exec.LookPath("node"); err == nil {
-		b, e := exec.CommandContext(ctx, p, "--version").Output()
+		// Even a read-only version probe creates a console host when it is
+		// launched by a windowsgui process unless the child is explicitly hidden.
+		b, e := backgroundCommandContext(ctx, p, "--version").Output()
 		if e == nil && systemNodeMatches(string(b)) {
 			real, _ := filepath.EvalSymlinks(p)
 			for _, npm := range []string{filepath.Join(filepath.Dir(real), "../lib/node_modules/npm/bin/npm-cli.js"), filepath.Join(filepath.Dir(real), "node_modules/npm/bin/npm-cli.js")} {
@@ -110,7 +113,7 @@ func (i *Installer) node(ctx context.Context) (Runtime, error) {
 		node = filepath.Join(root, "node.exe")
 		npm = filepath.Join(root, "node_modules/npm/bin/npm-cli.js")
 	}
-	if _, err = os.Stat(node); err == nil {
+	if runtimeFilesReady(node, npm) {
 		return Runtime{Node: node, NPM: npm}, nil
 	}
 	i.Log.Add("正在下载独立 Node.js " + NodeVersion + "，并验证 SHA-256")
@@ -126,10 +129,87 @@ func (i *Installer) node(ctx context.Context) (Runtime, error) {
 	if err = extractArchive(archive, stage, runtime.GOOS == "windows"); err != nil {
 		return Runtime{}, err
 	}
-	if err = os.Rename(filepath.Join(stage, folder), root); err != nil {
+	if err = publishNodeRuntime(filepath.Join(stage, folder), root, []string{node, npm}, os.Rename, time.Sleep); err != nil {
 		return Runtime{}, err
 	}
 	return Runtime{Node: node, NPM: npm}, nil
+}
+
+func publishNodeRuntime(source, target string, required []string, rename func(string, string) error, sleep func(time.Duration)) error {
+	// A reboot, antivirus scan or indexer may leave the destination incomplete
+	// or hold a freshly extracted directory for a short time on Windows. Keep an
+	// incomplete destination recoverable while retrying the same-volume rename.
+	if runtimeFilesReady(required...) {
+		return nil
+	}
+	sourceRequired := make([]string, 0, len(required))
+	for _, path := range required {
+		relative, err := filepath.Rel(target, path)
+		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+			return fmt.Errorf("运行时校验路径超出目标目录: %s", path)
+		}
+		sourceRequired = append(sourceRequired, filepath.Join(source, relative))
+	}
+	if !runtimeFilesReady(sourceRequired...) {
+		return errors.New("解压后的 Node.js 运行环境不完整，未发布到正式目录")
+	}
+	backup := target + ".incomplete-" + filepath.Base(filepath.Dir(source))
+	quarantined := false
+	var lastErr error
+	for attempt := 0; attempt < 20; attempt++ {
+		if runtimeFilesReady(required...) {
+			// A concurrent launcher may have completed the same private runtime.
+			if quarantined {
+				_ = os.RemoveAll(backup)
+			}
+			return nil
+		}
+		if !quarantined {
+			if _, err := os.Stat(target); err == nil {
+				if err = rename(target, backup); err != nil {
+					lastErr = err
+					sleep(nodePublishDelay(attempt))
+					continue
+				}
+				quarantined = true
+				continue
+			}
+		}
+		if err := rename(source, target); err == nil {
+			if quarantined {
+				_ = os.RemoveAll(backup)
+			}
+			return nil
+		} else {
+			lastErr = err
+		}
+		sleep(nodePublishDelay(attempt))
+	}
+	if quarantined {
+		if _, err := os.Stat(target); os.IsNotExist(err) {
+			if restoreErr := rename(backup, target); restoreErr != nil {
+				return fmt.Errorf("发布独立 Node.js 运行环境失败，且无法恢复原目录: %v（原错误: %w）", restoreErr, lastErr)
+			}
+		}
+	}
+	return fmt.Errorf("发布独立 Node.js 运行环境失败；Windows 可能仍在扫描或占用该目录，已自动重试: %w", lastErr)
+}
+
+func runtimeFilesReady(paths ...string) bool {
+	for _, path := range paths {
+		if info, err := os.Stat(path); err != nil || info.IsDir() {
+			return false
+		}
+	}
+	return true
+}
+
+func nodePublishDelay(attempt int) time.Duration {
+	delay := time.Duration(attempt+1) * 100 * time.Millisecond
+	if delay > time.Second {
+		return time.Second
+	}
+	return delay
 }
 
 func systemNodeMatches(version string) bool {
