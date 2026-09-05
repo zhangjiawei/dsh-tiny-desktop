@@ -8,6 +8,11 @@
 - `TestImportPreviewBackupRestore` 验证补充合并：源端同名文件不能覆盖 Tiny，新文件可加入，恢复只移除本次新增项并保留 Tiny 原数据。`TestWindowsCloudReparsePolicyIsNarrow` 只允许 Cloud_0…F、OneDrive、File Placeholder、Storage Sync，并把 junction、symlink、AF_UNIX、ProjFS 和 AppExecLink tag 分类为跳过项。
 - Windows 专用 `TestWindowsImportSkipsJunctionWithPathAndTag` 创建真实目录 junction，要求预览成功、跳过数量为 1，并同时报告相对路径与 `0xA0000003`；此项只以 Windows CI 结果为准。
 - 前端静态回归要求概览存在“一键重启”，受信消息桥按固定顺序调用 `Stop`/`Start`。正式 Windows WebView2 QA 会点击该按钮，观察离开 Running 后再次达到已认证 Running；不会以手动 Stop/Start 代替。
+- 本地 `go test -count=1 ./...`、核心 race、`go vet ./...`、`go mod tidy -diff`、前端 6 项测试与 TypeScript 构建全部通过。另将核心测试分别交叉编译为 Windows x86-64/AArch64 PE，确认 Windows reparse 实现可编译；两个临时测试二进制及目录随即删除。
+- `main` 工作流 [33971811683](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33971811683) 六个平台全部成功。Windows x64 job [101321537922](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33971811683/job/101321537922) 和 ARM64 job [101321537905](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33971811683/job/101321537905) 均通过真实 junction 单测、独立 DSH/六插件/PTY、正式 GUI 状态及 WebView2 一键重启全流程。
+- 最终标签 `v0.2.11`（`1dc4369`）的 [发布工作流 33972694330](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33972694330) 再次 6/6 构建成功并完成 release job [101325659753](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33972694330/job/101325659753)。Windows x64 job [101323900932](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33972694330/job/101323900932) 与 ARM64 job [101323900765](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/33972694330/job/101323900765) 在最终发布源码上再次通过原生门禁。
+- [v0.2.11 Release](https://github.com/zhangjiawei/dsh-tiny-desktop/releases/tag/v0.2.11) 为公开预览版，含六个平台安装包和 `SHA256SUMS.txt`。从公开直链重新下载后，六包 SHA-256 全部匹配；解压确认 Windows GUI PE x86-64/AArch64、macOS Mach-O x86_64/arm64、Linux ELF x86-64/aarch64 与资产命名一致。两个 Mac App 的 `CFBundleShortVersionString` 均为 `0.2.11`，且 `codesign --verify --deep --strict` 通过；这仅表示 ad-hoc 完整性，不代表 Apple 公证，Windows 仍未商业签名。
+- 公开资产验证的下载与解压目录占用约 94 MiB，验证后已删除；同时确认不存在本轮 `dsh-tiny-v0211-*` 临时目录。未修改全局 DSH、原 DshShell、用户 `~/.dsh` 或 Tiny 正式数据目录。
 
 ## v0.2.10 最小化与关闭窗口语义
 
