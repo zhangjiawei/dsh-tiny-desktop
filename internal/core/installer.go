@@ -27,12 +27,21 @@ func (i *Installer) environment(r Runtime) []string {
 	for _, v := range os.Environ() {
 		k, _, _ := strings.Cut(v, "=")
 		switch strings.ToUpper(k) {
-		case "DSH_HOME", "NODE_OPTIONS", "PATH", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY":
+		case "DSH_HOME", "DSH_PROFILE_DIR", "DSH_RUNTIME_DIR", "NODE_OPTIONS", "PATH", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY":
 			continue
 		}
 		env = append(env, v)
 	}
-	env = append(env, "DSH_HOME="+i.Paths.Data, "PATH="+r.Bin+string(os.PathListSeparator)+filepath.Dir(r.Node)+string(os.PathListSeparator)+os.Getenv("PATH"), "CI=true")
+	// Companion plugins launch `dsh plugin` themselves and then verify the
+	// result through DSH_PROFILE_DIR. Pin both lookup roots explicitly so their
+	// post-install check cannot fall back to the user's unrelated ~/.dsh profile.
+	env = append(env,
+		"DSH_HOME="+i.Paths.Data,
+		"DSH_PROFILE_DIR="+filepath.Join(i.Paths.Data, "profiles", "web"),
+		"DSH_RUNTIME_DIR="+filepath.Join(i.Paths.Runtime, "dsh"),
+		"PATH="+r.Bin+string(os.PathListSeparator)+filepath.Dir(r.Node)+string(os.PathListSeparator)+os.Getenv("PATH"),
+		"CI=true",
+	)
 	env = append(env, "npm_config_registry="+i.Settings.Registry)
 	if i.Settings.Proxy != "" {
 		env = append(env, "HTTP_PROXY="+i.Settings.Proxy, "HTTPS_PROXY="+i.Settings.Proxy)

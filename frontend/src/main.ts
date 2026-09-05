@@ -34,6 +34,16 @@ type State = {
   preferredPort: number;
   defaults: Settings;
 };
+type ImportPreview = {
+  source: string;
+  files: number;
+  bytes: number;
+  credentials: boolean;
+  skipped: number;
+  skippedItems?: string[];
+  conflicts: number;
+  conflictItems?: string[];
+};
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 const pending = new Map<
@@ -118,6 +128,8 @@ function render(s: State) {
   const active = ["installing", "starting", "running"].includes(s.phase);
   ($("start") as HTMLButtonElement).disabled = active;
   $("start").hidden = active;
+  ($("restart-service") as HTMLButtonElement).disabled = !active;
+  $("restart-service").hidden = !active;
   $("open").classList.toggle("primary", s.phase === "running");
   ($("stop") as HTMLButtonElement).disabled = !active;
   for (const id of ["open", "browser", "copy", "share"])
@@ -154,6 +166,10 @@ window.addEventListener("hashchange", route);
 route();
 action("start", () => call("start"));
 action("stop", () => call("stop"));
+action("restart-service", async () => {
+  notice("正在重新启动 DSH…");
+  await call("restartService");
+});
 action("open", async () => {
   await call("open");
   notice("已打开工作空间");
@@ -254,15 +270,18 @@ for (const id of ["language", "tray-only", "hide", "ontop"]) {
   };
 }
 action("choose", async () => {
-  const p = await call("preview", {
+  const p: ImportPreview | undefined = await call("preview", {
     credentials: $<HTMLInputElement>("credentials").checked,
   });
   if (!p) return;
   source = p.source;
-  $("preview").textContent =
-    language === "en"
-      ? `${source}\n${p.files} files · ${(p.bytes / 1024 / 1024).toFixed(1)} MiB\n${p.credentials ? "Includes credentials" : "No credentials"}`
-      : `${source}\n${p.files} 个文件 · ${(p.bytes / 1024 / 1024).toFixed(1)} MiB\n${p.credentials ? "包含敏感凭据" : "不包含凭据"}`;
+  const skipped = p.skippedItems?.join("\n  ") || "";
+  const conflicts = p.conflictItems?.join("\n  ") || "";
+  const skippedMore = p.skipped > (p.skippedItems?.length || 0) ? "\n  …" : "";
+  const conflictsMore = p.conflicts > (p.conflictItems?.length || 0) ? "\n  …" : "";
+  $("preview").textContent = language === "en"
+    ? `${source}\n${p.files} new files · ${(p.bytes / 1024 / 1024).toFixed(1)} MiB\n${p.conflicts} existing paths keep Tiny's version${conflicts ? `:\n  ${conflicts}${conflictsMore}` : ""}\n${p.skipped} unsupported items skipped${skipped ? `:\n  ${skipped}${skippedMore}` : ""}\n${p.credentials ? "Includes credentials" : "No credentials"}`
+    : `${source}\n可新增 ${p.files} 个文件 · ${(p.bytes / 1024 / 1024).toFixed(1)} MiB\n${p.conflicts} 个同名路径保留 Tiny 版本${conflicts ? `：\n  ${conflicts}${conflictsMore}` : ""}\n${p.skipped} 个不支持项已跳过${skipped ? `：\n  ${skipped}${skippedMore}` : ""}\n${p.credentials ? "包含敏感凭据" : "不包含凭据"}`;
   $<HTMLButtonElement>("import").disabled = false;
 });
 $<HTMLInputElement>("credentials").onchange = () => {
@@ -278,7 +297,7 @@ action("import", async () => {
   });
   $("restore").hidden = false;
   $<HTMLButtonElement>("import").disabled = true;
-  notice("导入完成。启动后将重建独立插件环境。");
+  notice("合并完成。Tiny 同名数据保持不变。");
 });
 action("restore", async () => {
   await call("restore", { backup: importedBackup });

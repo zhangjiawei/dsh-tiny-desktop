@@ -17,7 +17,7 @@ import (
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
 )
 
-var version = "0.2.10"
+var version = "0.2.11"
 
 // QA builds may override this via -ldflags to test in an isolated app instance.
 var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
@@ -108,6 +108,15 @@ func main() {
 					e = manager.Start()
 				case "stop":
 					manager.Stop()
+				case "restartService":
+					// A runtime restart is deliberately separate from settings save:
+					// one click stops only this app's owned process tree, starts it
+					// again, and lets the existing phase watcher restore the window.
+					manager.Stop()
+					e = manager.Start()
+					if e == nil {
+						result = manager.Snapshot()
+					}
 				case "quit":
 					result = true // Normal app shutdown stops the owned DSH process tree.
 				case "open":
@@ -165,7 +174,7 @@ func main() {
 						var source string
 						source, e = app.Dialog.OpenFile().CanChooseDirectories(true).CanChooseFiles(false).ShowHiddenFiles(true).SetTitle("选择原 DSH 数据目录").PromptForSingleSelection()
 						if e == nil && source != "" {
-							result, e = core.PreviewImport(source, d.Credentials)
+							result, e = manager.PreviewImport(source, d.Credentials)
 						}
 					}
 				case "import":

@@ -138,7 +138,7 @@ try {
   await evaluate(`location.hash='#overview'`);
   console.log("PASS: native WebView2 idle status, empty logs and independent data directory rendered");
   await evaluate(`document.querySelector('#start').click()`);
-  const running=await until(async()=>{const s=await status();return s.phase==="Running" && s.logs ? s : null;}, "DSH ready through native control bridge",180000);
+  let running=await until(async()=>{const s=await status();return s.phase==="Running" && s.logs ? s : null;}, "DSH ready through native control bridge",180000);
   assert.match(running.port,/127\.0\.0\.1\s*:\s*\d+/);
   const actualPort = Number(running.port.split(':').at(-1).trim());
   assert.notEqual(actualPort,3080);
@@ -146,6 +146,13 @@ try {
   assert.ok(running.warning.includes(String(actualPort)) && running.warning.includes('3080'));
   console.log('PASS: default pnpm command and domestic mirror; real occupied-port banner uses actual random service port');
   console.log("PASS: native Start button, authenticated DSH readiness, port and logs");
+  // The overview restart is one operation: it must leave Running, start the
+  // owned service again and recover authenticated readiness without a manual
+  // Stop + Start sequence.
+  await evaluate(`document.querySelector('#restart-service').click()`);
+  await until(async()=>{const s=await status();return s.phase!=="Running" ? s : null;}, "one-click restart began");
+  running=await until(async()=>{const s=await status();return s.phase==="Running" && s.logs ? s : null;}, "one-click restart completed",180000);
+  console.log("PASS: overview one-click restart stops, starts and restores authenticated readiness");
   // Hash navigation must keep working. Save runtime settings without stopping.
   await evaluate(`location.hash='#settings';document.querySelector('#port-input').value='43081';document.querySelector('#settings-form').requestSubmit()`);
   await until(async()=>{const s=await status();return s.pending?.includes("pending") && s.phase==="Running" && s.port===running.port;}, "save without interrupting running service");

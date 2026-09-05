@@ -42,7 +42,7 @@
           <span>退出应用</span>
         </button>
         <span class="local-dot"></span><span>本地运行 · 数据独立</span
-        ><small>v0.2.10</small>
+        ><small>v0.2.11</small>
       </footer>
     </aside>
     <main>
@@ -63,6 +63,7 @@
           <div class="actions">
             <button id="start" class="primary">启动工作空间 ↗</button
             ><button id="open">打开窗口</button
+            ><button id="restart-service">↻ 一键重启</button
             ><button id="stop" class="quiet danger">停止服务</button>
           </div>
           <div id="error" role="alert"></div>
@@ -218,13 +219,13 @@
       <section id="data" hidden>
         <div class="page-heading">
           <h1>数据迁移</h1>
-          <p>从原 DSH 复制数据，保留原目录和现有备份。</p>
+          <p>从原 DSH 补充数据，Tiny 已有内容始终优先。</p>
         </div>
         <div class="panel data-panel">
           <h3>当前数据空间</h3>
           <code id="data-path"></code>
           <p>
-            导入会复制会话、附件、技能和设置；不复制插件代码、缓存或运行锁。现有独立数据会自动备份。
+            导入会补充会话、附件、技能和设置；同名路径保留 Tiny 版本，不复制插件代码、缓存或运行锁。不支持项会跳过并显示原因。
           </p>
           <div class="info-note">
             请先退出原 DSH，确保导入时源数据不再变化。

@@ -1,5 +1,14 @@
 # 验证记录
 
+## v0.2.11 Profile、Windows 导入与一键重启
+
+- 插件更新根因：Tiny 的 DSH 子进程已有独立 `DSH_HOME`，但未显式设置 `DSH_PROFILE_DIR`。`@michengai/dsh-codex-ui` 的 CLI fallback 用 `DSH_HOME` 调用 `dsh plugin --profile web add`，命令实际更新 Tiny Profile；其安装后校验却在变量缺失时回退到用户 `~/.dsh/profiles/web`。本机两个 manifest 的插件版本确实不同，稳定解释“命令结束但没有进入当前 Profile”。
+- `TestInstallerEnvironmentPinsIndependentProfile` 先注入错误的继承 Profile/Runtime：修复前返回继承路径并失败；修复后确认环境中只有 Tiny 的 `dsh/profiles/web` 与 `runtime/dsh`。不会读取、写入或更新全局 DSH。
+- `TestImportSkipsSpecialFileAndKeepsRegularData` 使用白名单 `sessions` 下的命名管道回放旧错误：修复前整次预览失败；修复后正常文件完成导入，管道未复制，预览报告 `sessions/runtime.pipe`。`TestImportSkipsSymlinks` 同样要求符号链接只计入跳过项。
+- `TestImportPreviewBackupRestore` 验证补充合并：源端同名文件不能覆盖 Tiny，新文件可加入，恢复只移除本次新增项并保留 Tiny 原数据。`TestWindowsCloudReparsePolicyIsNarrow` 只允许 Cloud_0…F、OneDrive、File Placeholder、Storage Sync，并把 junction、symlink、AF_UNIX、ProjFS 和 AppExecLink tag 分类为跳过项。
+- Windows 专用 `TestWindowsImportSkipsJunctionWithPathAndTag` 创建真实目录 junction，要求预览成功、跳过数量为 1，并同时报告相对路径与 `0xA0000003`；此项只以 Windows CI 结果为准。
+- 前端静态回归要求概览存在“一键重启”，受信消息桥按固定顺序调用 `Stop`/`Start`。正式 Windows WebView2 QA 会点击该按钮，观察离开 Running 后再次达到已认证 Running；不会以手动 Stop/Start 代替。
+
 ## v0.2.10 最小化与关闭窗口语义
 
 - `TestWindowLifecycleKeepsMinimiseNative` 直接检查 `main.go` 的真实事件绑定：修复前稳定报错 `minimise is wired to hideToTray`；移除该绑定后通过，并额外要求设置窗口与工作空间的两个关闭钩子仍保留 `hideToTray`。

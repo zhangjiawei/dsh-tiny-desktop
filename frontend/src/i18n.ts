@@ -59,8 +59,8 @@ const en: Record<string, string> = {
     "Trusted private networks only. Links grant full access; HTTP is unencrypted.",
   "已有工作空间的插件不会随重启自动升级。":
     "Existing workspace plugins never update silently on restart.",
-  "从原 DSH 复制数据，保留原目录和现有备份。":
-    "Copy from an existing DSH installation, preserving the source and backups.",
+  "从原 DSH 补充数据，Tiny 已有内容始终优先。":
+    "Add data from an existing DSH installation. Existing Tiny data always wins.",
   当前数据空间: "Current data space",
   "请先退出原 DSH，确保导入时源数据不再变化。":
     "Exit the original DSH before importing so the source data stays unchanged.",
@@ -83,6 +83,7 @@ const en: Record<string, string> = {
     "The first launch installs an isolated runtime and default plugins. Your existing DshShell is untouched.",
   "启动工作空间 ↗": "Start workspace ↗",
   打开窗口: "Open window",
+  "↻ 一键重启": "↻ Restart",
   停止服务: "Stop service",
   "↗ 在浏览器中打开": "↗ Open in browser",
   "⧉ 复制认证链接": "⧉ Copy authenticated link",
@@ -131,8 +132,8 @@ const en: Record<string, string> = {
   "只读原目录，复制到本应用的独立数据空间。请先退出原 DSH，确保源数据不再变化。":
     "Copy the source read-only into an isolated data space. Exit the original DSH first so its data stops changing.",
   当前独立数据目录: "Current isolated data directory",
-  "导入会复制会话、附件、技能和设置；不复制插件代码、缓存或运行锁。现有独立数据会自动备份。":
-    "Import sessions, attachments, skills and settings, not plugin code, caches or locks. Existing isolated data is backed up automatically.",
+  "导入会补充会话、附件、技能和设置；同名路径保留 Tiny 版本，不复制插件代码、缓存或运行锁。不支持项会跳过并显示原因。":
+    "Add sessions, attachments, skills and settings. Existing Tiny paths win; plugin code, caches and locks are excluded. Unsupported items are skipped with a reason.",
   "同时复制凭据（API Key 等敏感配置）":
     "Also copy credentials (API keys and other secrets)",
   "选择原 DSH 数据目录…": "Choose original DSH data directory…",
@@ -173,12 +174,13 @@ const en: Record<string, string> = {
   连接失败: "Connection failed",
   "选项已改变，请重新选择目录以预览。":
     "Options changed. Choose the directory again to preview.",
-  "导入完成。启动后将重建独立插件环境。":
-    "Import complete. The isolated plugin environment will be rebuilt on startup.",
+  "合并完成。Tiny 同名数据保持不变。":
+    "Merge complete. Existing Tiny data was kept.",
   已恢复备份: "Backup restored.",
   已打开工作空间: "Workspace opened.",
   已在默认浏览器中打开: "Opened in the default browser.",
   正在应用设置并重启: "Applying settings and restarting…",
+  "正在重新启动 DSH…": "Restarting DSH…",
 };
 export function t(text: string) {
   return language === "en" ? en[text] || text : text;

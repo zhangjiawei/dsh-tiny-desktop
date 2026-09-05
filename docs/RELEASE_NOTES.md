@@ -1,3 +1,15 @@
+v0.2.11 公开预览版：修复独立 Profile 插件更新校验，改进 Windows 数据合并，并增加一键重启。
+
+- DSH 子进程现在显式携带 Tiny 的独立 `DSH_PROFILE_DIR` 与 `DSH_RUNTIME_DIR`。插件更新命令和安装后校验读取同一个 `profiles/web`，不再因误读全局 `~/.dsh` 而提示“插件没有进入当前 Profile”。
+- 数据迁移改为 Tiny 优先的补充合并：同名路径保留 Tiny 版本，只加入源端缺少的文件；预览分别显示可新增、保留 Tiny 和跳过项。本次导入可撤销，既不覆盖 Tiny 原数据，也不读取或修改源目录。
+- Windows 导入允许已知 Cloud Files、OneDrive、File Placeholder 和 Storage Sync 数据 reparse tag；符号链接、junction、AF_UNIX socket、管道、设备、ProjFS、未知 reparse point 及无法读取的非必要项直接跳过，不再阻断整次导入。预览报告数量、相对路径和可用的 tag；必要配置 `settings.yaml` 仍严格校验。
+- 概览页运行中新增“↻ 一键重启”，一次操作停止本应用拥有的 DSH 进程树并重新启动；认证就绪后沿用原有流程自动恢复工作空间。
+- Windows 正式 WebView2 门禁增加一键重启开始、再次认证就绪检查；导入策略增加 Tiny 优先合并、跨平台特殊项跳过和 Windows 真实 junction 测试。
+
+升级请先从托盘或设置中真正退出旧版，再替换程序。保留独立数据目录。macOS 仍为 ad-hoc 签名、Windows 未商业签名。
+
+## v0.2.10
+
 v0.2.10 公开预览版：纠正最小化与关闭窗口的桌面交互。
 
 - 点最小化始终交给系统原生窗口管理，应用保留在 macOS Dock 或 Windows/Linux 任务栏。

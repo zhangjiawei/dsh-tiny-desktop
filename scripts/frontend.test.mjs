@@ -27,6 +27,27 @@ test("tray setting distinguishes native minimize from close-to-tray", async () =
   assert.doesNotMatch(html, /最小化或关闭时隐藏 Dock/);
 });
 
+test("overview provides a real one-click service restart", async () => {
+  const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
+  const client = await readFile(new URL("../frontend/src/main.ts", import.meta.url), "utf8");
+  const backend = await readFile(new URL("../cmd/desktop/main.go", import.meta.url), "utf8");
+  assert.match(html, /id="restart-service">↻ 一键重启/);
+  assert.match(client, /action\("restart-service", async \(\) => \{[\s\S]*call\("restartService"\)/);
+  assert.match(backend, /case "restartService":[\s\S]*manager\.Stop\(\)[\s\S]*manager\.Start\(\)/);
+});
+
+test("import preview exposes Tiny-wins merge and skipped entries", async () => {
+  const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
+  const client = await readFile(new URL("../frontend/src/main.ts", import.meta.url), "utf8");
+  const backend = await readFile(new URL("../cmd/desktop/main.go", import.meta.url), "utf8");
+  assert.match(html, /Tiny 已有内容始终优先/);
+  assert.match(html, /不支持项会跳过并显示原因/);
+  assert.match(client, /可新增.*p\.files/s);
+  assert.match(client, /p\.conflicts.*保留 Tiny 版本/s);
+  assert.match(client, /p\.skipped.*不支持项已跳过/s);
+  assert.match(backend, /manager\.PreviewImport\(source, d\.Credentials\)/);
+});
+
 test("status polling never rewrites an open language picker", async () => {
   let value = "语言",
     writes = 0;

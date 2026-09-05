@@ -139,16 +139,25 @@ func TestZipExtractionAndTraversal(t *testing.T) {
 func TestImportPreviewBackupRestore(t *testing.T) {
 	source := t.TempDir()
 	os.WriteFile(filepath.Join(source, "settings.yaml"), []byte("language: zh"), 0600)
+	os.Mkdir(filepath.Join(source, "sessions"), 0700)
+	os.WriteFile(filepath.Join(source, "sessions", "same.json"), []byte("source must not win"), 0600)
+	os.WriteFile(filepath.Join(source, "sessions", "new.json"), []byte("source addition"), 0600)
 	os.WriteFile(filepath.Join(source, ".credentials.yaml"), []byte("private"), 0600)
 	os.Mkdir(filepath.Join(source, "profiles"), 0700)
 	os.WriteFile(filepath.Join(source, "profiles", "code.js"), []byte("do not copy"), 0600)
 	preview, e := PreviewImport(source, false)
-	if e != nil || preview.Files != 1 {
+	if e != nil || preview.Files != 3 {
 		t.Fatal(preview, e)
 	}
 	p, _ := NewPaths(t.TempDir())
 	os.WriteFile(filepath.Join(p.Data, "keep"), []byte("original"), 0600)
+	os.Mkdir(filepath.Join(p.Data, "sessions"), 0700)
+	os.WriteFile(filepath.Join(p.Data, "sessions", "same.json"), []byte("tiny wins"), 0600)
 	m := NewManager(p, Defaults())
+	mergedPreview, e := m.PreviewImport(source, false)
+	if e != nil || mergedPreview.Conflicts != 1 || mergedPreview.Files != 2 {
+		t.Fatalf("unexpected Tiny-wins preview: %+v, %v", mergedPreview, e)
+	}
 	backup, e := m.Import(source, false)
 	if e != nil {
 		t.Fatal(e)
@@ -159,22 +168,78 @@ func TestImportPreviewBackupRestore(t *testing.T) {
 	if _, e = os.Stat(filepath.Join(p.Data, "profiles")); !os.IsNotExist(e) {
 		t.Fatal("executable profile imported")
 	}
+	if b, readErr := os.ReadFile(filepath.Join(p.Data, "sessions", "same.json")); readErr != nil || string(b) != "tiny wins" {
+		t.Fatalf("source overwrote Tiny data: %q, %v", b, readErr)
+	}
+	if b, readErr := os.ReadFile(filepath.Join(p.Data, "sessions", "new.json")); readErr != nil || string(b) != "source addition" {
+		t.Fatalf("source addition missing: %q, %v", b, readErr)
+	}
 	if e = m.RestoreBackup(backup); e != nil {
 		t.Fatal(e)
+	}
+	if _, e = os.Stat(filepath.Join(p.Data, "sessions", "new.json")); !os.IsNotExist(e) {
+		t.Fatal("overlay restore retained imported addition")
 	}
 	b, e := os.ReadFile(filepath.Join(p.Data, "keep"))
 	if e != nil || string(b) != "original" {
 		t.Fatal("backup lost")
 	}
 }
-func TestImportRejectsSymlinks(t *testing.T) {
+func TestImportSkipsSymlinks(t *testing.T) {
 	src := t.TempDir()
 	os.WriteFile(filepath.Join(src, "settings.yaml"), []byte("language: zh"), 0600)
 	if e := os.Symlink(t.TempDir(), filepath.Join(src, "sessions")); e != nil {
 		t.Skip(e)
 	}
-	if _, e := PreviewImport(src, false); e == nil {
-		t.Fatal("symlink accepted")
+	preview, e := PreviewImport(src, false)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if preview.Skipped != 1 || len(preview.SkippedItems) != 1 || !strings.Contains(preview.SkippedItems[0], "sessions") {
+		t.Fatalf("symlink skip not reported: %+v", preview)
+	}
+}
+
+func TestImportStillRequiresRealSettingsFile(t *testing.T) {
+	src := t.TempDir()
+	target := filepath.Join(t.TempDir(), "settings.yaml")
+	if e := os.WriteFile(target, []byte("language: zh"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.Symlink(target, filepath.Join(src, "settings.yaml")); e != nil {
+		t.Skip(e)
+	}
+	if _, e := PreviewImport(src, false); e == nil || !strings.Contains(e.Error(), "settings.yaml") {
+		t.Fatalf("required settings symlink must fail explicitly: %v", e)
+	}
+}
+
+func TestOverlayRestoreRejectsTraversalBeforeRemovingData(t *testing.T) {
+	paths, e := NewPaths(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	kept := filepath.Join(paths.Data, "sessions", "kept.json")
+	if e = os.MkdirAll(filepath.Dir(kept), 0700); e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(kept, []byte("keep"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	backup := filepath.Join(paths.Root, "backup-malformed")
+	if e = os.Mkdir(backup, 0700); e != nil {
+		t.Fatal(e)
+	}
+	marker, _ := json.Marshal(importOverlayBackup{Version: 1, Files: []string{"sessions/kept.json", "nested/../../outside"}})
+	if e = os.WriteFile(filepath.Join(backup, importOverlayMarker), marker, 0600); e != nil {
+		t.Fatal(e)
+	}
+	manager := NewManager(paths, Defaults())
+	if e = manager.RestoreBackup(backup); e == nil {
+		t.Fatal("malformed overlay backup was accepted")
+	}
+	if contents, readErr := os.ReadFile(kept); readErr != nil || string(contents) != "keep" {
+		t.Fatalf("restore partially removed data before validation: %q, %v", contents, readErr)
 	}
 }
 func TestSnapshotNeverContainsToken(t *testing.T) {
