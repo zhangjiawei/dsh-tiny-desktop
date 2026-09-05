@@ -3,13 +3,14 @@
 ## v0.2.5 Windows GUI stdin、图标与退出界面
 
 - 用户提供的第二台 Windows 日志显示六插件已安装完成，随后默认 `pnpm dlx` 在 `@deepseek-ai/dsh-subprocess-local` 生命周期阶段由 pnpm 10.28.0 抛出 `Error: readStream must be readable`；进程为应用私有 pnpm/缓存，末行 Node 为系统 24.19.0，全局 dsh 没有出现在调用链中。
-- `TestSystemNodeMustMatchPinnedRuntime` 在修复前因缺少严格版本边界失败；修复后只接受 24.20.0。其他版本使用下载、SHA-256 校验后的私有 Node。`TestManagedStdinStaysOpenUntilCleanup` 验证匿名 stdin 在子进程运行期保持可读且仅在清理时 EOF；安装器与长期 DSH 进程均使用该边界，不继承用户输入。
+- `TestSystemNodeMustMatchPinnedRuntime` 在修复前因缺少严格版本边界失败；修复后只接受 24.20.0。其他版本使用下载、SHA-256 校验后的私有 Node。`TestManagedStdinStaysOpenUntilCleanup` 验证匿名 stdin 在子进程运行期保持可读且仅在清理时 EOF；安装器与长期 DSH 进程均使用该边界，不继承用户输入。后续正式 GUI 脱敏日志进一步证明异常来自 pnpm 的生命周期子进程 stdout 竞态，并非顶层 stdin：默认命令在 Windows 复用 Ensure 已按同版本安装和重建的私有 DSH；`TestWindowsDefaultDLXUsesInstalledPrivateDSH` 锁定只改写精确默认命令和可选私有 trusted host，其他系统及自定义版本不改写。
 - Windows 窗口图标不再从单一 256 px ICO 经 `LoadImageW` 缩放，而是由 Wails/w32 按系统小/大图标指标从源 PNG 创建 HICON。原生 UIA 脚本新增像素检查，要求设置窗口的 16/32 图标同时包含浅底与绿色齿轮特征，不再把任意非零默认句柄记为通过。
 - 退出区采用和导航一致的按钮结构；确认弹窗使用 alertdialog 语义、42 px 警示图标、分隔操作栏及等宽按钮。本地 1000×800、820×680 隔离浏览器检查无横向溢出，后者弹窗 440×189 px，两按钮均 88×36 px；该浏览器预览只证明布局，不替代 Windows 原生 GUI。
 - 本地 Go 全量测试、核心 race/vet、模块 diff、前端测试/构建和 Windows amd64 GUI 交叉编译通过。最终六平台与 Windows 原生首次安装结果以下方发布工作流为准。
 - Mac 全新隔离目录在系统 Node 26.7.0 下明确下载并校验私有 Node 24.20.0，完成当次最新六插件、默认 pnpm dlx、认证就绪、三处真实 PTY 和自有进程停止；测试目录约 1.3 GiB、交叉编译 exe 及浏览器截图均在记录结果后删除。
 - 用户第二份日志还显示 Windows 误选 `172.29.112.1`（WSL/Hyper-V 虚拟网卡），实际物理局域网地址为 `172.16.8.136`。选择器回归先以虚拟网卡排在首位稳定复现旧行为，再改为优先默认路由源地址、回退时降低虚拟/隧道接口优先级。`--trusted-host` 现仅允许单个私有 IPv4；显式配置时用于绑定和 DSH 信任，未配置时由外壳注入自动选择的地址。
 - 首轮 main 工作流 `33938094155` 的 Mac/Linux 四平台通过；Windows x64 普通首装、旧锁恢复、自定义 pnpm dlx 和打包通过，但新增正式 GUI 用例在 15 分钟后只报告“Running 或齿轮未满足”的合并超时，证据不足以区分安装与图标。后续探针分离阶段状态和三种图标句柄/像素统计，并在进入 Needs attention 或 Running 后图标异常时快速失败；该轮不发布。
+- 诊断工作流 `33939650227` 的 Windows x64 脱敏日志复现到私有 Node 24.20.0 与 pnpm 10.28.0：六插件成功后，默认 dlx 安装的 `@deepseek-ai/dsh-subprocess-local` postinstall 已启动并立刻在 pnpm `byline(proc.stdout)` 抛出 `readStream must be readable`。这排除了全局 dsh、旧 Node、图标探针和六插件安装；该轮仅用于证据，不发布。
 
 ## v0.2.4 安装恢复验证
 

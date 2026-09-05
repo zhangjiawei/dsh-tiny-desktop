@@ -25,6 +25,8 @@ An independent, lightweight desktop home for [DeepSeek Harness](https://github.c
 - **设置窗口**：采用齿轮标识，Windows 使用独立的窗口齿轮图标，Linux 使用窗口图标；macOS 保留系统惯例，共享应用 Dock 图标仍为 DSH Tiny。侧栏“退出应用”经确认后停止后台 DSH 并退出；取消不会中断服务。
 - **启动命令**：新安装默认直接填入下方私有 `pnpm dlx` 命令，仓库默认填入 `https://registry.npmmirror.com`。两项均可编辑和单独恢复默认。已有自定义值保留；旧版空命令显示为 `dsh web`，仍使用原私有托管 CLI，不强制改成 dlx 重新下载。支持引号，不执行 Shell 管道、变量替换或重定向。端口与 `--no-open` 由外壳追加，不能自行覆盖监听地址、认证或关闭认证。局域网分享可选用正确参数名 `--trusted-host <私有 IPv4>` 指定网卡地址；未填写时优先采用默认路由对应的局域网地址。这些限制也在输入框下说明。自定义版本的兼容性由所选 DSH/插件决定。
 
+  Windows 的无控制台程序中，pnpm 10.28.0 的 `dlx` 在 DSH 极短的 postinstall 结束时存在输出管道竞态。仅当命令精确匹配应用给出的默认示例（可附加 `--trusted-host`）时，外壳会执行首次准备阶段已经安装、重建且版本相同的私有 DSH，避免重复 dlx 安装；修改版本、程序或其他参数后仍按自定义命令原样执行。不会调用全局 dsh。
+
 可点击“填入 pnpm dlx 示例”获得以下命令（原生依赖需要明确许可，不能全部放行）：
 
 ```sh

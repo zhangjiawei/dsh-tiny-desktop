@@ -5,6 +5,7 @@ import (
 	"net"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"unicode"
 )
@@ -101,6 +102,39 @@ func trustedHost(args []string) string {
 	return ""
 }
 
+func managedWindowsDefaultDLX(args []string, osName string) ([]string, bool) {
+	if osName != "windows" {
+		return nil, false
+	}
+	expected, err := ParseCommand(DefaultCommand)
+	if err != nil {
+		return nil, false
+	}
+	stripped := make([]string, 0, len(args))
+	managed := []string{"web"}
+	for index := 0; index < len(args); index++ {
+		key, _, inline := strings.Cut(args[index], "=")
+		if key != "--trusted-host" {
+			stripped = append(stripped, args[index])
+			continue
+		}
+		managed = append(managed, args[index])
+		if !inline {
+			index++
+			managed = append(managed, args[index])
+		}
+	}
+	if len(stripped) != len(expected) {
+		return nil, false
+	}
+	for index := range expected {
+		if stripped[index] != expected[index] {
+			return nil, false
+		}
+	}
+	return managed, true
+}
+
 func (i *Installer) launchCommand(r Runtime) (string, []string, error) {
 	args, err := ParseCommand(i.Settings.Command)
 	if err != nil {
@@ -108,6 +142,14 @@ func (i *Installer) launchCommand(r Runtime) (string, []string, error) {
 	}
 	if len(args) == 0 {
 		return r.Node, []string{r.CLI, "web"}, nil
+	}
+	// pnpm 10.28.0 has a Windows no-console pipe race when dlx runs DSH's
+	// very short postinstall script ("readStream must be readable"). The exact
+	// default command is equivalent to the pinned DSH that Ensure already
+	// installed and rebuilt in this private runtime, so execute that copy on
+	// Windows. Any genuinely custom command still runs exactly as configured.
+	if managed, ok := managedWindowsDefaultDLX(args, runtime.GOOS); ok {
+		return r.Node, append([]string{r.CLI}, managed...), nil
 	}
 	name := args[0]
 	args = args[1:]

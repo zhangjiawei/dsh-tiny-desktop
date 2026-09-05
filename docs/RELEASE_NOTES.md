@@ -1,6 +1,6 @@
 v0.2.5 公开预览版：修复 Windows 无控制台首次启动，并统一窗口图标与退出界面。
 
-- Windows GUI 启动的受管 Node/pnpm 子进程现在使用应用专属的可读 stdin 管道，避免生命周期脚本报 `readStream must be readable`。
+- Windows GUI 启动的受管 Node/pnpm 子进程使用应用专属的可读 stdin；针对 pnpm 10.28.0 无控制台执行 DSH 极短 postinstall 时仍存在的输出管道竞态，Windows 上精确匹配默认 `pnpm dlx` 命令时复用已经安装并重建好的同版本私有 DSH。真正自定义的命令仍按配置执行。
 - 仅复用精确匹配的 Node 24.20.0；其他系统 Node 版本改用校验后的私有固定版本。全局 dsh 不参与启动。
 - 设置窗口齿轮图标和工作空间品牌图标直接按系统 DPI 创建原生小/大 HICON；Windows 回归检查实际像素内容，不再只判断句柄存在。
 - 侧栏“退出应用”与导航样式统一；确认弹窗改为一致的间距、警示信息层级、按钮尺寸和危险操作配色。

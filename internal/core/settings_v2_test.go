@@ -39,6 +39,28 @@ func TestCommandArgumentsAndManagedBoundary(t *testing.T) {
 		}
 	}
 }
+
+func TestWindowsDefaultDLXUsesInstalledPrivateDSH(t *testing.T) {
+	args, err := ParseCommand(DefaultCommand + ` --trusted-host 172.16.8.136`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	managed, ok := managedWindowsDefaultDLX(args, "windows")
+	if !ok || strings.Join(managed, " ") != "web --trusted-host 172.16.8.136" {
+		t.Fatalf("managed Windows command = %v, %v", managed, ok)
+	}
+	if _, ok = managedWindowsDefaultDLX(args, "darwin"); ok {
+		t.Fatal("non-Windows command was rewritten")
+	}
+	custom, err := ParseCommand(strings.Replace(DefaultCommand, DSHVersion, "9.9.9", 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok = managedWindowsDefaultDLX(custom, "windows"); ok {
+		t.Fatal("custom DSH version was rewritten")
+	}
+}
+
 func TestLanguageResolution(t *testing.T) {
 	for _, x := range []struct{ choice, system, want string }{{"system", "zh-Hans-CN", "zh"}, {"system", "zh_TW", "zh"}, {"system", "en-US", "en"}, {"system", "ja-JP", "en"}, {"en", "zh-CN", "en"}, {"zh", "en-US", "zh"}} {
 		if got := ResolveLanguage(x.choice, x.system); got != x.want {
