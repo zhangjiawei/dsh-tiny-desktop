@@ -360,3 +360,17 @@ func TestNodePublishRejectsIncompleteExtractionBeforeMovingTarget(t *testing.T) 
 		t.Fatalf("target changed before source validation: %q, %v", got, err)
 	}
 }
+
+func TestAtomicReplacementRetriesTransientAccessDenied(t *testing.T) {
+	attempts := 0
+	err := replaceFileWithRetry(func() error {
+		attempts++
+		if attempts < 3 {
+			return os.ErrPermission
+		}
+		return nil
+	}, func(time.Duration) {})
+	if err != nil || attempts != 3 {
+		t.Fatalf("atomic replacement = %v after %d attempts", err, attempts)
+	}
+}

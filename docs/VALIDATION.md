@@ -6,6 +6,7 @@
 - `TestNodePublishRetriesTransientWindowsAccessDenied` 注入前两次拒绝访问，确认第三次重试发布成功；`TestNodePublishReplacesIncompleteTarget` 验证同名半成品先隔离、新运行时就位后再清理；`TestNodePublishRestoresIncompleteTargetWhenReplacementFails` 验证连续失败时恢复旧目录，而不是丢失现场。
 - 正式 EXE 已由打包脚本使用 `-H windowsgui`，长期 DSH 及安装子进程也已有 `HideWindow`，因此用户在已安装全局 Node 的 Windows 上双击时出现的短暂控制台，定位为未套用隐藏策略的 `node --version` 系统运行时探测。该探测与 PowerShell 语言探测现统一经过 `backgroundCommandContext`；Windows 专属回归直接检查 `HideWindow` 与进程组标志。
 - v0.2.6 候选标签的 Windows x64 已成功完成全新安装、恢复、自定义 pnpm/PTY、正式打包并认证就绪，随后图标探针因 `ICON_SMALL=0`、`ICON_SMALL2` 与 large 均为有效自定义图标而误报。微软文档允许 `WM_GETICON` 返回 0 并要求使用后续回退；探针改为要求至少一个小图标槽存在、验证所有实际返回的槽和大图标。v0.2.6 未生成 Release，且不重写旧标签。
+- 修正图标探针后的 Windows x64 已通过正式 EXE 的状态与图标检查，随后 QA 设置保存真实返回 `Access is denied`。该路径同样是临时文件到正式设置文件的 Windows 原子重命名；`replaceFileWithRetry` 注入两次拒绝访问后成功的回归，保证旧设置不被原地截断，并覆盖 Defender/索引器的短暂 delete-sharing 占用。
 - 本地使用官方 Go 1.25.0 临时工具链运行核心回归通过；完整六平台、Windows 原生 GUI 与公开安装包校验以本节后续发布记录为准。临时工具链将在发布校验后删除。
 
 ## v0.2.5 Windows GUI stdin、图标与退出界面

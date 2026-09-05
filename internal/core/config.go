@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
 const Product = "dsh-tiny-desktop"
@@ -166,6 +167,21 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) error {
 		return err
 	}
 	return replaceFile(name, path)
+}
+
+func replaceFileWithRetry(replace func() error, sleep func(time.Duration)) error {
+	var err error
+	for attempt := 0; attempt < 10; attempt++ {
+		if err = replace(); err == nil {
+			return nil
+		}
+		delay := time.Duration(attempt+1) * 50 * time.Millisecond
+		if delay > 500*time.Millisecond {
+			delay = 500 * time.Millisecond
+		}
+		sleep(delay)
+	}
+	return err
 }
 func exeName(name string) string {
 	if runtime.GOOS == "windows" {
