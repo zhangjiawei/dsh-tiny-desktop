@@ -23,6 +23,9 @@ func installWindowIcon(w *application.WebviewWindow, data []byte) (func(), error
 	application.InvokeSync(func() {
 		hwnd := w32.HWND(uintptr(w.NativeWindow()))
 		w32.SendMessage(hwnd, w32.WM_SETICON, w32.ICON_SMALL, uintptr(small))
+		// Windows may request ICON_SMALL2 for a per-DPI title-bar icon. Without
+		// it, high-DPI machines can keep showing the window-class placeholder.
+		w32.SendMessage(hwnd, w32.WM_SETICON, w32.ICON_SMALL2, uintptr(small))
 		w32.SendMessage(hwnd, w32.WM_SETICON, w32.ICON_BIG, uintptr(large))
 	})
 	// Handles remain owned by this process until all native windows close.

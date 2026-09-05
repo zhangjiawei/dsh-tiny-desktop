@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"net"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -61,14 +62,43 @@ func ParseCommand(command string) ([]string, error) {
 	if started {
 		args = append(args, word.String())
 	}
-	for _, a := range args {
-		key, _, _ := strings.Cut(a, "=")
+	trusted := ""
+	for index, a := range args {
+		key, value, inline := strings.Cut(a, "=")
 		switch key {
-		case "--port", "--host", "--hostname", "--trusted-host", "--token", "--no-auth", "--disable-auth":
+		case "--port", "--host", "--hostname", "--token", "--no-auth", "--disable-auth":
 			return nil, errors.New("端口、监听地址和认证参数由桌面外壳管理，请勿在启动命令中覆盖")
+		case "--trusted-host":
+			if !inline {
+				if index+1 >= len(args) {
+					return nil, errors.New("--trusted-host 必须填写私有 IPv4 地址")
+				}
+				value = args[index+1]
+			}
+			ip := net.ParseIP(value)
+			if trusted != "" || ip == nil || ip.To4() == nil || !ip.IsPrivate() {
+				return nil, errors.New("--trusted-host 仅允许填写一个私有 IPv4 地址")
+			}
+			trusted = ip.String()
 		}
 	}
 	return args, nil
+}
+
+func trustedHost(args []string) string {
+	for index, arg := range args {
+		key, value, inline := strings.Cut(arg, "=")
+		if key != "--trusted-host" {
+			continue
+		}
+		if inline {
+			return value
+		}
+		if index+1 < len(args) {
+			return args[index+1]
+		}
+	}
+	return ""
 }
 
 func (i *Installer) launchCommand(r Runtime) (string, []string, error) {

@@ -11,7 +11,7 @@ const en: Record<string, string> = {
   恢复默认命令: "Reset command",
   恢复默认仓库: "Reset registry",
   启动程序及参数: "Program and arguments",
-  "支持带引号的路径和参数；不支持 Shell 管道、变量、重定向或多条命令。端口、监听地址和认证由应用管理，请勿填写 --port、--host、--token 或关闭认证的参数。pnpm 使用应用内置环境，仅允许示例中列出的必要安装脚本。": "Quoted paths and arguments are supported; shell pipes, variables, redirects and multiple commands are not. The app manages ports, listen addresses and authentication: do not add --port, --host, --token or disable authentication. pnpm uses the app's private runtime and permits only the necessary build scripts listed in the default command.",
+  "支持带引号的路径和参数；不支持 Shell 管道、变量、重定向或多条命令。端口、监听地址和认证由应用管理；局域网分享可选填 --trusted-host 私有 IPv4，未填写则使用默认路由网卡地址。请勿填写 --port、--host、--token 或关闭认证的参数。pnpm 使用应用内置环境，仅允许示例中列出的必要安装脚本。": "Quoted paths and arguments are supported; shell pipes, variables, redirects and multiple commands are not. The app manages ports, listen addresses and authentication. For LAN sharing, --trusted-host may specify one private IPv4 address; otherwise the default-route adapter is used. Do not add --port, --host, --token or disable authentication. pnpm uses the app's private runtime and permits only the necessary build scripts listed in the default command.",
   "端口占用自动检测；被占用时自动选择随机可用端口。": "Automatically detect occupied ports and select a random available port when needed.",
   "默认使用 npmmirror 国内镜像。启动命令继承此仓库；命令中显式指定的 registry 优先。镜像同步可能延迟，可按需切换仓库。": "Defaults to the China-friendly npmmirror registry. Launch commands inherit this registry unless explicitly overridden. Mirrors may lag behind upstream; change the registry when needed.",
   "本地运行 · 数据独立": "Local · Isolated data",

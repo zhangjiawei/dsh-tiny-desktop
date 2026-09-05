@@ -37,6 +37,19 @@ func TestActualPrivateAddress(t *testing.T) {
 	r.Body.Close()
 }
 
+func TestLANAddressPrefersDefaultRouteOverVirtualAdapters(t *testing.T) {
+	candidates := []interfaceAddress{
+		{Name: "vEthernet (WSL)", IP: net.ParseIP("172.29.112.1")},
+		{Name: "Wi-Fi", IP: net.ParseIP("172.16.8.136")},
+	}
+	if got := selectPrivateAddress(net.ParseIP("172.16.8.136"), candidates); got != "172.16.8.136" {
+		t.Fatalf("selected %q, want physical default-route address", got)
+	}
+	if got := selectPrivateAddress(nil, candidates); got != "172.16.8.136" {
+		t.Fatalf("fallback selected virtual adapter: %q", got)
+	}
+}
+
 func TestLANPreservesAuthorityAndWebsocket(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Upgrade") != "websocket" {

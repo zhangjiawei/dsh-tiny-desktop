@@ -190,7 +190,11 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 	}
 	args = append(args, "--no-open", "--port", strconv.Itoa(port))
 	if i.Settings.LAN {
-		ip, e := privateAddress()
+		requestedIP := trustedHost(args)
+		ip, e := requestedIP, error(nil)
+		if ip == "" {
+			ip, e = privateAddress()
+		}
 		if e != nil {
 			// Being offline must not prevent local work when LAN is enabled by
 			// default. Never fall back to a public address or wildcard binding.
@@ -201,7 +205,9 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 				return true, e
 			}
 			defer server.Close()
-			args = append(args, "--trusted-host", ip)
+			if requestedIP == "" {
+				args = append(args, "--trusted-host", ip)
+			}
 			m.mu.Lock()
 			m.lanIP = ip
 			m.mu.Unlock()
