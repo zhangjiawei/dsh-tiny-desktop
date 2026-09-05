@@ -1,5 +1,13 @@
 # 验证记录
 
+## v0.2.8 Android Opera 扫码认证上下文
+
+- 同一局域网、同一二维码在 Android Maxthon 正常，Opera 内置扫码入口返回 DSH authentication required；把“复制认证链接”直接粘贴到同一 Opera 地址栏则正常。这排除了二维码缺 token 及 HTTP 本身被浏览器拒绝，差异集中在扫码入口的重定向/Cookie 上下文。
+- DSH 的根 token 请求会签发按 authority 绑定、`HttpOnly; SameSite=Strict` 的会话 Cookie，并以 303 跳转到无 token 的 `/`。最小回归模拟扫码预览先访问二维码、再由新浏览器上下文接手最终地址，旧实现稳定得到 HTTP 401。
+- 局域网二维码改为 `/.dsh-tiny/share?token=…`：GET/HEAD 仅返回不可缓存的静态确认页且不访问 DSH；用户明确 POST 后才 303 到 DSH token 根地址。回归验证预览阶段 DSH 请求数为 0、页面正文不包含 token，并在当前浏览器 Cookie 容器内认证成功。
+- 正常启动隔离检查：`Start`、Installer、DSH 子进程、`VerifyLaunchURL`、工作空间窗口、浏览器打开及复制认证链接仍走原路径；只有运行后主动点击“分享二维码”才调用 `QRShareURL`。LAN 代理原有普通 HTTP、Host 边界和 WebSocket 回归继续通过；未启用 LAN 时二维码仍返回原本机地址。
+- 本地 `go test -count=1 ./...`、核心 race/vet、模块 diff、前端测试、TypeScript 与打包通过。正式六平台真实启动、Windows 原生 WebView2 与公开产物校验以本节后续发布记录为准。
+
 ## v0.2.7 Windows Node 目录发布恢复与启动闪屏
 
 - 用户日志在 Node 24.20.0 解压完成后的同卷目录重命名阶段返回 Windows `Access is denied`。原实现仅执行一次 `os.Rename`，既不重试短暂文件占用，也不能处理系统重启留下的同名半成品目标目录。

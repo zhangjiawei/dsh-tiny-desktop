@@ -1,6 +1,7 @@
 package core
 
 import (
+	_ "embed"
 	"errors"
 	"net"
 	"net/http"
@@ -10,6 +11,11 @@ import (
 	"strings"
 	"time"
 )
+
+const qrSharePath = "/.dsh-tiny/share"
+
+//go:embed qr_share_page.html
+var qrSharePage []byte
 
 type interfaceAddress struct {
 	Name string
@@ -101,8 +107,46 @@ func newLANHandler(target *url.URL, authority string) http.Handler {
 			http.Error(w, "Invalid Host", http.StatusForbidden)
 			return
 		}
+		if serveQRShare(w, r) {
+			return
+		}
 		proxy.ServeHTTP(w, r)
 	})
+}
+
+// serveQRShare prevents QR-scanner previews from spending the token-to-cookie
+// exchange in a browser container that is discarded during handoff. GET/HEAD
+// never reach DSH; only the user's explicit POST redirects this same browser to
+// the authenticated root. The bearer stays in the URL and is never logged.
+func serveQRShare(w http.ResponseWriter, r *http.Request) bool {
+	if r.URL.Path != qrSharePath {
+		return false
+	}
+	query := r.URL.Query()
+	tokens := query["token"]
+	if len(query) != 1 || len(tokens) != 1 || len(tokens[0]) < 20 {
+		http.Error(w, "Invalid share link", http.StatusBadRequest)
+		return true
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'")
+	switch r.Method {
+	case http.MethodGet, http.MethodHead:
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		if r.Method == http.MethodGet {
+			_, _ = w.Write(qrSharePage)
+		}
+	case http.MethodPost:
+		destination := &url.URL{Path: "/", RawQuery: url.Values{"token": {tokens[0]}}.Encode()}
+		http.Redirect(w, r, destination.String(), http.StatusSeeOther)
+	default:
+		w.Header().Set("Allow", "GET, HEAD, POST")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+	return true
 }
 func (m *Manager) ShareURL() (string, error) {
 	m.mu.Lock()
@@ -116,6 +160,26 @@ func (m *Manager) ShareURL() (string, error) {
 	}
 	if m.lanIP != "" {
 		u.Host = net.JoinHostPort(m.lanIP, strconv.Itoa(m.port))
+	}
+	return u.String(), nil
+}
+
+// QRShareURL keeps the ordinary copied URL direct, but routes LAN QR scans
+// through a confirmation page so scanner previews cannot lose DSH's
+// authority-bound cookie when they hand the URL to another browser.
+func (m *Manager) QRShareURL() (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.phase != "running" {
+		return "", errors.New("服务尚未就绪")
+	}
+	u, err := url.Parse(m.launch)
+	if err != nil {
+		return "", err
+	}
+	if m.lanIP != "" {
+		u.Host = net.JoinHostPort(m.lanIP, strconv.Itoa(m.port))
+		u.Path = qrSharePath
 	}
 	return u.String(), nil
 }

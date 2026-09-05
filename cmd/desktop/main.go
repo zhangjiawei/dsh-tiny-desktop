@@ -17,7 +17,7 @@ import (
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
 )
 
-var version = "0.2.7"
+var version = "0.2.8"
 
 // QA builds may override this via -ldflags to test in an isolated app instance.
 var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
@@ -125,7 +125,7 @@ func main() {
 						app.Clipboard.SetText(u)
 					}
 				case "share":
-					result, e = manager.ShareURL()
+					result, e = manager.QRShareURL()
 				case "copyShare":
 					var u string
 					u, e = manager.ShareURL()

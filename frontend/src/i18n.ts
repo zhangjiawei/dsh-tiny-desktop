@@ -147,6 +147,8 @@ const en: Record<string, string> = {
     "This link grants full access. Do not publish it. The local-only address cannot be opened on a phone.",
   "此链接包含完整访问权限。仅限可信私有网络；HTTP 未加密，请勿公开或转发给不可信的人。":
     "This link grants full access. Trusted private networks only; HTTP is unencrypted. Never publish or share with untrusted people.",
+  "扫码后，在打开的页面点击“进入工作空间”完成认证。":
+    "After scanning, tap Continue in the opened page to complete authentication.",
   复制认证链接: "Copy authenticated link",
   关闭: "Close",
   已停止: "Stopped",

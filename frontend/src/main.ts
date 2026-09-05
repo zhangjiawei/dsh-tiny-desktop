@@ -184,6 +184,8 @@ action("share", async () => {
       ? "此链接包含完整访问权限。仅限可信私有网络；HTTP 未加密，请勿公开或转发给不可信的人。"
       : "此链接包含完整访问凭证，请勿公开。当前为仅本机地址，手机无法访问。",
   );
+  $("share-step").hidden = !lan;
+  $("share-step").textContent = t("扫码后，在打开的页面点击“进入工作空间”完成认证。");
   await QRCode.toCanvas($("qr"), url, {
     width: 250,
     margin: 2,

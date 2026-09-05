@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DSH Tiny · 确认连接</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+        color: #202322;
+        background: #f5f6f5;
+      }
+      * { box-sizing: border-box; }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      main {
+        width: min(420px, 100%);
+        padding: 30px;
+        background: #fff;
+        border: 1px solid #e1e7e3;
+        border-radius: 18px;
+        box-shadow: 0 18px 60px #172b2a14;
+      }
+      .eyebrow {
+        margin: 0 0 22px;
+        color: #078441;
+        font: 650 11px/1.4 ui-monospace, "SFMono-Regular", Consolas, monospace;
+        letter-spacing: 0.12em;
+      }
+      .handoff {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 22px;
+      }
+      .app-mark {
+        width: 52px;
+        height: 52px;
+        flex: 0 0 52px;
+        border-radius: 14px;
+        background: #172b2a;
+        display: grid;
+        place-items: center;
+      }
+      .app-mark svg { width: 34px; height: 34px; }
+      .transfer {
+        flex: 1;
+        height: 1px;
+        background: #cfe1d6;
+        position: relative;
+      }
+      .transfer::after {
+        content: "";
+        position: absolute;
+        right: -1px;
+        top: -4px;
+        width: 7px;
+        height: 7px;
+        border-top: 1px solid #078441;
+        border-right: 1px solid #078441;
+        transform: rotate(45deg);
+      }
+      .browser-mark {
+        padding: 8px 10px;
+        border: 1px solid #dce5df;
+        border-radius: 9px;
+        color: #52605a;
+        background: #fafcfb;
+        font: 600 11px/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      }
+      h1 { margin: 0 0 10px; font-size: 22px; line-height: 1.3; }
+      p { margin: 0 0 22px; color: #68716d; font-size: 14px; line-height: 1.75; }
+      form { margin: 0; }
+      button {
+        width: 100%;
+        min-height: 46px;
+        border: 0;
+        border-radius: 9px;
+        background: #078441;
+        color: #fff;
+        font: 650 15px/1.2 inherit;
+        cursor: pointer;
+      }
+      button:hover { background: #056d36; }
+      button:focus-visible { outline: 3px solid #9dd9b8; outline-offset: 3px; }
+      small {
+        display: block;
+        margin-top: 16px;
+        color: #8a928e;
+        font-size: 11px;
+        line-height: 1.6;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">DSH TINY · QR → WEB</div>
+      <div class="handoff" aria-hidden="true">
+        <div class="app-mark">
+          <svg viewBox="0 0 48 48" fill="none">
+            <rect x="7" y="10" width="34" height="28" rx="5" stroke="#e5eee8" stroke-width="2.5" />
+            <path d="M8 17h32M15 23l5 4-5 4M25 31h9" stroke="#d5fa5b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <div class="transfer"></div>
+        <div class="browser-mark">BROWSER</div>
+      </div>
+      <h1>确认在此浏览器中进入</h1>
+      <p>有些扫码器会先预览链接。为避免认证留在预览窗口，请在你要使用的浏览器里点击下方按钮。</p>
+      <form method="post"><button type="submit">确认并进入工作空间</button></form>
+      <small>仅限可信局域网 · 链接包含访问权限 · HTTP 未加密<br />Continue only on a trusted private network.</small>
+    </main>
+  </body>
+</html>
