@@ -17,7 +17,7 @@ import (
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
 )
 
-var version = "0.2.11"
+var version = "0.2.12"
 
 // QA builds may override this via -ldflags to test in an isolated app instance.
 var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
@@ -112,8 +112,7 @@ func main() {
 					// A runtime restart is deliberately separate from settings save:
 					// one click stops only this app's owned process tree, starts it
 					// again, and lets the existing phase watcher restore the window.
-					manager.Stop()
-					e = manager.Start()
+					e = manager.Restart()
 					if e == nil {
 						result = manager.Snapshot()
 					}
@@ -184,7 +183,7 @@ func main() {
 					}
 					e = json.Unmarshal(request.Data, &d)
 					if e == nil {
-						result, e = manager.Import(d.Source, d.Credentials)
+						result, e = manager.ImportWithRestart(d.Source, d.Credentials)
 					}
 				case "restore":
 					var d struct {
@@ -192,7 +191,7 @@ func main() {
 					}
 					e = json.Unmarshal(request.Data, &d)
 					if e == nil {
-						e = manager.RestoreBackup(d.Backup)
+						e = manager.RestoreBackupWithRestart(d.Backup)
 					}
 				case "updates":
 					e = app.Browser.OpenURL("https://github.com/zhangjiawei/dsh-tiny-desktop/releases")

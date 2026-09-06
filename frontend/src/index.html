@@ -42,7 +42,7 @@
           <span>退出应用</span>
         </button>
         <span class="local-dot"></span><span>本地运行 · 数据独立</span
-        ><small>v0.2.11</small>
+        ><small>v0.2.12</small>
       </footer>
     </aside>
     <main>
@@ -225,10 +225,10 @@
           <h3>当前数据空间</h3>
           <code id="data-path"></code>
           <p>
-            导入会补充会话、附件、技能和设置；同名路径保留 Tiny 版本，不复制插件代码、缓存或运行锁。不支持项会跳过并显示原因。
+            导入会补充会话、项目、附件、技能、设置和可选凭据；配置文件按条目合并，Tiny 已有值始终优先。不复制插件代码或运行锁，不支持项会跳过并显示原因。
           </p>
           <div class="info-note">
-            请先退出原 DSH，确保导入时源数据不再变化。
+            请先退出原 DSH，确保来源数据不再变化。Tiny 服务若正在运行，会自动安全停止，并在导入完成或失败后自动恢复，无需前往概览操作。
           </div>
           <label class="check"
             ><input id="credentials" type="checkbox" />同时复制凭据（API Key

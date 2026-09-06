@@ -134,6 +134,15 @@ const en: Record<string, string> = {
   当前独立数据目录: "Current isolated data directory",
   "导入会补充会话、附件、技能和设置；同名路径保留 Tiny 版本，不复制插件代码、缓存或运行锁。不支持项会跳过并显示原因。":
     "Add sessions, attachments, skills and settings. Existing Tiny paths win; plugin code, caches and locks are excluded. Unsupported items are skipped with a reason.",
+  "导入会补充会话、项目、附件、技能、设置和可选凭据；配置文件按条目合并，Tiny 已有值始终优先。不复制插件代码或运行锁，不支持项会跳过并显示原因。":
+    "Import sessions, projects, attachments, skills, settings, and optional credentials. Config records are merged while existing Tiny values always win. Plugin code and runtime locks are excluded; unsupported items are skipped.",
+  "请先退出原 DSH，确保来源数据不再变化。Tiny 服务若正在运行，会自动安全停止，并在导入完成或失败后自动恢复，无需前往概览操作。":
+    "Exit the original DSH so source data stops changing. If Tiny is running, it stops safely and resumes automatically after success or failure; no Overview step is required.",
+  "正在安全停止服务并合并数据，完成后会自动恢复…":
+    "Safely stopping the service and merging data; it will resume automatically…",
+  "合并完成，DSH 已自动重新启动。": "Merge complete. DSH restarted automatically.",
+  "正在恢复导入前的数据，完成后会自动恢复服务…":
+    "Restoring pre-import data; the service will resume automatically…",
   "同时复制凭据（API Key 等敏感配置）":
     "Also copy credentials (API keys and other secrets)",
   "选择原 DSH 数据目录…": "Choose original DSH data directory…",

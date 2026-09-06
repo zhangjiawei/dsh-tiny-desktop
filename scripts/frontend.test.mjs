@@ -33,7 +33,7 @@ test("overview provides a real one-click service restart", async () => {
   const backend = await readFile(new URL("../cmd/desktop/main.go", import.meta.url), "utf8");
   assert.match(html, /id="restart-service">↻ 一键重启/);
   assert.match(client, /action\("restart-service", async \(\) => \{[\s\S]*call\("restartService"\)/);
-  assert.match(backend, /case "restartService":[\s\S]*manager\.Stop\(\)[\s\S]*manager\.Start\(\)/);
+  assert.match(backend, /case "restartService":[\s\S]*manager\.Restart\(\)/);
 });
 
 test("import preview exposes Tiny-wins merge and skipped entries", async () => {
@@ -43,9 +43,11 @@ test("import preview exposes Tiny-wins merge and skipped entries", async () => {
   assert.match(html, /Tiny 已有内容始终优先/);
   assert.match(html, /不支持项会跳过并显示原因/);
   assert.match(client, /可新增.*p\.files/s);
+  assert.match(client, /p\.merged.*配置\/数据文件按条目补充/s);
   assert.match(client, /p\.conflicts.*保留 Tiny 版本/s);
   assert.match(client, /p\.skipped.*不支持项已跳过/s);
   assert.match(backend, /manager\.PreviewImport\(source, d\.Credentials\)/);
+  assert.match(backend, /manager\.ImportWithRestart\(d\.Source, d\.Credentials\)/);
 });
 
 test("status polling never rewrites an open language picker", async () => {

@@ -19,13 +19,15 @@ type ImportPreview struct {
 	Credentials   bool     `json:"credentials"`
 	Skipped       int      `json:"skipped"`
 	SkippedItems  []string `json:"skippedItems,omitempty"`
+	Merged        int      `json:"merged"`
+	MergedItems   []string `json:"mergedItems,omitempty"`
 	Conflicts     int      `json:"conflicts"`
 	ConflictItems []string `json:"conflictItems,omitempty"`
 }
 
 // The allowlist imports user content/configuration, never executable profiles,
 // node_modules, lockfiles or running-process state from the original app.
-var importRoots = map[string]bool{"sessions": true, "attachments": true, "skills": true, "settings.yaml": true, ".agent-presets": true, "task-board": true}
+var importRoots = map[string]bool{"sessions": true, "attachments": true, "skills": true, "settings.yaml": true, ".agent-presets": true, "task-board": true, "storages": true}
 
 // Keep the preview useful without sending an unbounded list of source paths to
 // the WebView. The count still includes every skipped entry.
@@ -149,6 +151,19 @@ func previewImport(source string, credentials bool, destination string) (ImportP
 				return conflictErr
 			}
 			if conflict {
+				if structuredImportKind(rel) != "" {
+					_, changed, mergeErr := mergeStructuredImport(filepath.Join(source, rel), filepath.Join(destination, rel), rel)
+					if mergeErr != nil {
+						return mergeErr
+					}
+					if changed {
+						p.Merged++
+						if len(p.MergedItems) < importSkipSampleLimit {
+							p.MergedItems = append(p.MergedItems, filepath.ToSlash(rel)+" — 按条目补充，Tiny 已有值优先")
+						}
+						return nil
+					}
+				}
 				p.Conflicts++
 				if len(p.ConflictItems) < importSkipSampleLimit {
 					p.ConflictItems = append(p.ConflictItems, filepath.ToSlash(rel)+" — "+reason)
@@ -192,12 +207,46 @@ func importDestinationConflict(destination, rel string) (bool, string, error) {
 }
 
 type importOverlayBackup struct {
-	Version int      `json:"version"`
-	Files   []string `json:"files"`
-	Dirs    []string `json:"dirs"`
+	Version       int      `json:"version"`
+	Files         []string `json:"files"`
+	Dirs          []string `json:"dirs"`
+	ModifiedFiles []string `json:"modifiedFiles,omitempty"`
 }
 
 const importOverlayMarker = ".tiny-import-overlay.json"
+
+type ImportResult struct {
+	Backup    string `json:"backup"`
+	Restarted bool   `json:"restarted"`
+}
+
+// ImportWithRestart lets the data page own the complete lifecycle. Users do
+// not have to visit Overview: an active Tiny service is stopped, the isolated
+// data space is changed transactionally, and the same service is started again
+// whether the import succeeds or fails.
+func (m *Manager) ImportWithRestart(source string, credentials bool) (ImportResult, error) {
+	m.mu.Lock()
+	wasActive := m.cancel != nil
+	m.mu.Unlock()
+	if wasActive {
+		m.log.Add("数据导入：正在安全停止 Tiny 托管的 DSH 服务")
+		m.Stop()
+	}
+	backup, importErr := m.Import(source, credentials)
+	result := ImportResult{Backup: backup}
+	if wasActive {
+		restartErr := m.Start()
+		result.Restarted = restartErr == nil
+		if restartErr != nil {
+			if importErr != nil {
+				return result, fmt.Errorf("导入失败（%v），恢复服务也失败: %w", importErr, restartErr)
+			}
+			return result, fmt.Errorf("数据已导入，但恢复服务失败: %w", restartErr)
+		}
+		m.log.Add("数据导入：已自动恢复 DSH 服务")
+	}
+	return result, importErr
+}
 
 func (m *Manager) Import(source string, credentials bool) (string, error) {
 	m.mu.Lock()
@@ -228,6 +277,8 @@ func (m *Manager) Import(source string, credentials bool) (string, error) {
 	// actively changing source aborts instead of reporting a consistent import.
 	skipped := 0
 	conflicts := 0
+	merged := 0
+	stagedMerged := make(map[string]bool)
 	seenFiles := 0
 	var seenBytes int64
 	recordSkipped := func(_ string, _ string) { skipped++ }
@@ -242,7 +293,31 @@ func (m *Manager) Import(source string, credentials bool) (string, error) {
 			return conflictErr
 		}
 		if conflict {
-			conflicts++
+			if structuredImportKind(rel) == "" {
+				conflicts++
+				return nil
+			}
+			contents, changed, mergeErr := mergeStructuredImport(filepath.Join(source, rel), filepath.Join(m.paths.Data, rel), rel)
+			if mergeErr != nil {
+				return mergeErr
+			}
+			if !changed {
+				conflicts++
+				return nil
+			}
+			dst := filepath.Join(stage, rel)
+			if err := os.MkdirAll(filepath.Dir(dst), 0700); err != nil {
+				return err
+			}
+			if err := os.WriteFile(dst, contents, 0600); err != nil {
+				return err
+			}
+			stagedMerged[filepath.ToSlash(rel)] = true
+			merged++
+			after, statErr := os.Lstat(filepath.Join(source, rel))
+			if statErr != nil || !os.SameFile(before, after) || before.Size() != after.Size() || !before.ModTime().Equal(after.ModTime()) {
+				return errors.New("导入源正在变化；请先退出原 DSH 再导入")
+			}
 			return nil
 		}
 		src := filepath.Join(source, rel)
@@ -262,18 +337,22 @@ func (m *Manager) Import(source string, credentials bool) (string, error) {
 			recordSkipped(rel, "无法读取（权限不足或云文件不可用）")
 			return nil
 		}
-		defer in.Close()
 		out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 		if err != nil {
+			_ = in.Close()
 			return err
 		}
 		_, err = io.Copy(out, io.LimitReader(in, before.Size()+1))
+		inCloseErr := in.Close()
 		closeErr := out.Close()
 		if err != nil {
 			return fmt.Errorf("复制导入文件 %s: %w", rel, err)
 		}
 		if closeErr != nil {
 			return closeErr
+		}
+		if inCloseErr != nil {
+			return inCloseErr
 		}
 		after, err := os.Lstat(src)
 		if err != nil {
@@ -291,13 +370,19 @@ func (m *Manager) Import(source string, credentials bool) (string, error) {
 	if err = os.Mkdir(backup, 0700); err != nil {
 		return "", err
 	}
-	overlay := importOverlayBackup{Version: 1}
+	overlay := importOverlayBackup{Version: 2}
 	rollback := func() {
 		for index := len(overlay.Files) - 1; index >= 0; index-- {
 			_ = os.Remove(filepath.Join(m.paths.Data, filepath.FromSlash(overlay.Files[index])))
 		}
 		for index := len(overlay.Dirs) - 1; index >= 0; index-- {
 			_ = os.Remove(filepath.Join(m.paths.Data, filepath.FromSlash(overlay.Dirs[index])))
+		}
+		for index := len(overlay.ModifiedFiles) - 1; index >= 0; index-- {
+			rel := filepath.FromSlash(overlay.ModifiedFiles[index])
+			if original, readErr := os.ReadFile(filepath.Join(backup, "originals", rel)); readErr == nil {
+				_ = AtomicWrite(filepath.Join(m.paths.Data, rel), original, 0600)
+			}
 		}
 	}
 	err = filepath.Walk(stage, func(path string, info fs.FileInfo, walkErr error) error {
@@ -316,7 +401,29 @@ func (m *Manager) Import(source string, credentials bool) (string, error) {
 			return conflictErr
 		}
 		if conflict {
-			conflicts++
+			if !stagedMerged[filepath.ToSlash(rel)] {
+				conflicts++
+				return nil
+			}
+			original := filepath.Join(backup, "originals", rel)
+			if err := os.MkdirAll(filepath.Dir(original), 0700); err != nil {
+				return err
+			}
+			contents, readErr := os.ReadFile(filepath.Join(m.paths.Data, rel))
+			if readErr != nil {
+				return readErr
+			}
+			if err := os.WriteFile(original, contents, 0600); err != nil {
+				return err
+			}
+			mergedContents, readErr := os.ReadFile(path)
+			if readErr != nil {
+				return readErr
+			}
+			if err := AtomicWrite(filepath.Join(m.paths.Data, rel), mergedContents, 0600); err != nil {
+				return err
+			}
+			overlay.ModifiedFiles = append(overlay.ModifiedFiles, filepath.ToSlash(rel))
 			return nil
 		}
 		createdDirs, prepareErr := prepareImportDestination(m.paths.Data, filepath.Dir(rel))
@@ -347,7 +454,7 @@ func (m *Manager) Import(source string, credentials bool) (string, error) {
 		_ = os.RemoveAll(backup)
 		return "", err
 	}
-	m.log.Add(fmt.Sprintf("数据合并完成：新增 %d 个文件，保留 %d 个 Tiny 同名项；撤销记录在 %s", len(overlay.Files), conflicts, backup))
+	m.log.Add(fmt.Sprintf("数据合并完成：新增 %d 个文件，按条目合并 %d 个配置/数据文件，保留 %d 个 Tiny 同名项；撤销记录在 %s", len(overlay.Files), merged, conflicts, backup))
 	if skipped > 0 {
 		m.log.Add(fmt.Sprintf("导入时已安全跳过 %d 个不支持或无法读取的项目", skipped))
 	}
@@ -402,15 +509,23 @@ func (m *Manager) RestoreBackup(backup string) error {
 	markerPath := filepath.Join(backup, importOverlayMarker)
 	if marker, markerErr := os.ReadFile(markerPath); markerErr == nil {
 		var overlay importOverlayBackup
-		if json.Unmarshal(marker, &overlay) != nil || overlay.Version != 1 {
+		if json.Unmarshal(marker, &overlay) != nil || (overlay.Version != 1 && overlay.Version != 2) {
 			return errors.New("导入撤销记录损坏，未更改当前数据")
 		}
 		// Validate the complete manifest before removing the first item. A
 		// malformed later entry must never turn restoration into a partial
 		// path traversal or partial rollback.
-		for _, item := range append(append([]string{}, overlay.Files...), overlay.Dirs...) {
+		items := append(append(append([]string{}, overlay.Files...), overlay.Dirs...), overlay.ModifiedFiles...)
+		for _, item := range items {
 			if invalidImportRelativePath(filepath.FromSlash(item)) {
 				return errors.New("导入撤销记录包含无效路径，未更改当前数据")
+			}
+		}
+		for _, item := range overlay.ModifiedFiles {
+			rel := filepath.FromSlash(item)
+			info, inspectErr := os.Lstat(filepath.Join(backup, "originals", rel))
+			if inspectErr != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+				return fmt.Errorf("导入前文件备份无效：%s；未更改当前数据", rel)
 			}
 		}
 		for index := len(overlay.Files) - 1; index >= 0; index-- {
@@ -424,6 +539,17 @@ func (m *Manager) RestoreBackup(backup string) error {
 			// A directory may now contain data created by Tiny after import.
 			// Remove it only when empty; otherwise deliberately keep it.
 			_ = os.Remove(filepath.Join(m.paths.Data, rel))
+		}
+		for index := len(overlay.ModifiedFiles) - 1; index >= 0; index-- {
+			rel := filepath.FromSlash(overlay.ModifiedFiles[index])
+			original := filepath.Join(backup, "originals", rel)
+			contents, readErr := os.ReadFile(original)
+			if readErr != nil {
+				return fmt.Errorf("读取导入前文件 %s: %w", rel, readErr)
+			}
+			if err := AtomicWrite(filepath.Join(m.paths.Data, rel), contents, 0600); err != nil {
+				return fmt.Errorf("恢复导入前文件 %s: %w", rel, err)
+			}
 		}
 		return os.RemoveAll(backup)
 	} else if !os.IsNotExist(markerErr) {
@@ -439,6 +565,28 @@ func (m *Manager) RestoreBackup(backup string) error {
 	}
 	_ = os.Remove(filepath.Join(m.paths.Runtime, "receipt.json"))
 	return nil
+}
+
+// RestoreBackupWithRestart mirrors import lifecycle handling because a
+// successful import may already have brought the service back online.
+func (m *Manager) RestoreBackupWithRestart(backup string) error {
+	m.mu.Lock()
+	wasActive := m.cancel != nil
+	m.mu.Unlock()
+	if wasActive {
+		m.Stop()
+	}
+	restoreErr := m.RestoreBackup(backup)
+	if wasActive {
+		restartErr := m.Start()
+		if restartErr != nil {
+			if restoreErr != nil {
+				return fmt.Errorf("恢复失败（%v），重新启动服务也失败: %w", restoreErr, restartErr)
+			}
+			return fmt.Errorf("数据已恢复，但重新启动服务失败: %w", restartErr)
+		}
+	}
+	return restoreErr
 }
 
 func invalidImportRelativePath(rel string) bool {

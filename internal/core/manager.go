@@ -133,6 +133,13 @@ func (m *Manager) Stop() {
 		<-done
 	}
 }
+
+// Restart is the single process-level restart path used by the settings UI and
+// by other lifecycle operations. It only touches the DSH tree owned by Tiny.
+func (m *Manager) Restart() error {
+	m.Stop()
+	return m.Start()
+}
 func (m *Manager) run(ctx context.Context, s Settings, done chan struct{}) {
 	var failure error
 	defer func() {
@@ -155,33 +162,46 @@ func (m *Manager) run(ctx context.Context, s Settings, done chan struct{}) {
 		failure = err
 		return
 	}
-	for attempt := 0; attempt < 3; attempt++ {
-		// After a bind race (including a LAN-only collision), do not keep trying
-		// the preferred port just because its loopback interface still looks free.
-		preferred := s.Port
-		if attempt > 0 {
-			preferred = 0
+	for {
+		profileRestart := false
+		for attempt := 0; attempt < 3; attempt++ {
+			// After a bind race (including a LAN-only collision), do not keep trying
+			// the preferred port just because its loopback interface still looks free.
+			preferred := s.Port
+			if attempt > 0 {
+				preferred = 0
+			}
+			port, err := CandidatePort(preferred)
+			if err != nil {
+				failure = err
+				return
+			}
+			m.mu.Lock()
+			m.port = port
+			m.phase = "starting"
+			m.launch = ""
+			m.mu.Unlock()
+			collision, serveErr := m.serve(ctx, installer, r, port)
+			if ctx.Err() != nil {
+				return
+			}
+			if errors.Is(serveErr, errProfileUpdated) {
+				m.log.Add("检测到 Web 插件更新完成，正在由 Tiny 重启 DSH")
+				profileRestart = true
+				break
+			}
+			if !collision {
+				failure = serveErr
+				return
+			}
+			m.log.Add("端口在启动期间被占用，正在选择新端口")
 		}
-		port, err := CandidatePort(preferred)
-		if err != nil {
-			failure = err
-			return
+		if profileRestart {
+			continue
 		}
-		m.mu.Lock()
-		m.port = port
-		m.phase = "starting"
-		m.mu.Unlock()
-		collision, err := m.serve(ctx, installer, r, port)
-		if ctx.Err() != nil {
-			return
-		}
-		if !collision {
-			failure = err
-			return
-		}
-		m.log.Add("端口在启动期间被占用，正在选择新端口")
+		failure = errors.New("连续三次端口竞争，请稍后重试")
+		return
 	}
-	failure = errors.New("连续三次端口竞争，请稍后重试")
 }
 func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (bool, error) {
 	executable, args, err := i.launchCommand(r)
@@ -239,6 +259,12 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 		return false, err
 	}
 	defer group.close()
+	profileUpdates, watchErr := watchProfileUpdates(ctx, filepath.Join(m.paths.Data, "profiles", "web"), 750*time.Millisecond, 3)
+	if watchErr != nil {
+		// Profile watching is convenience, not a startup prerequisite. Keep DSH
+		// usable and leave an actionable diagnostic in the local log.
+		m.log.Add("无法监听 Web 插件更新，将保留手动一键重启：" + watchErr.Error())
+	}
 	urls := make(chan string, 1)
 	scanned := make(chan struct{})
 	var collision bool
@@ -279,6 +305,9 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 		case <-ctx.Done():
 			stop()
 			return false, nil
+		case <-profileUpdates:
+			stop()
+			return false, errProfileUpdated
 		case err := <-exited:
 			if err == nil {
 				err = errors.New("DSH 服务意外退出")

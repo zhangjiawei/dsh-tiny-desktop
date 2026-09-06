@@ -1,3 +1,15 @@
+v0.2.12 公开预览版：让 Web 插件更新得到真正的 DSH 进程重启，并补全项目、设置与凭据的 Tiny 优先合并。
+
+- Web/CLI 模式没有官方 Desktop 的 Node IPC；Web 页重连此前不等于 Tiny 的进程重启。Tiny 现在监听自己的独立 Profile，只有插件 pending 标记消失且 `package.json` 稳定后才重启受管 DSH 进程树；更新失败或尚未结束时不会中断服务，也不修改第三方插件源码。
+- 数据导入加入 `storages`，并按 DSH 官方 JSON storage 单元的表/记录键补充来源项目；同名项目和 Tiny 的 global 值保持不变。
+- `settings.yaml` 按映射键递归补充，`.credentials.yaml` 按 `refs` / `records` 键补充。来源独有的 DeepSeek API Key 可以进入 Tiny，同名密钥仍由 Tiny 优先；预览和日志不展示凭据值。
+- 导入页会自动停止 Tiny 托管的服务，并在成功或失败后自动恢复；不再要求先去概览停止。撤销会同时删除本次新增文件并还原被合并文件的原版本。
+- 继续跳过 Windows junction、symlink、设备等不支持项；这些技能链接不阻断会话、项目和凭据的正常合并。
+
+升级请先从托盘或设置中真正退出旧版，再替换程序。保留独立数据目录。macOS 仍为 ad-hoc 签名、Windows 未商业签名。
+
+## v0.2.11
+
 v0.2.11 公开预览版：修复独立 Profile 插件更新校验，改进 Windows 数据合并，并增加一键重启。
 
 - DSH 子进程现在显式携带 Tiny 的独立 `DSH_PROFILE_DIR` 与 `DSH_RUNTIME_DIR`。插件更新命令和安装后校验读取同一个 `profiles/web`，不再因误读全局 `~/.dsh` 而提示“插件没有进入当前 Profile”。

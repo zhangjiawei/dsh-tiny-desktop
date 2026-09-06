@@ -1,5 +1,14 @@
 # 验证记录
 
+## v0.2.12 插件更新重启与按记录数据合并
+
+- 已确认 `@michengai/dsh-codex-ui` 在普通 Web/CLI 进程中检测到 `process.send` 不存在，因此返回 `autoReload: false`；官方 Desktop 才通过 `apply-plugin-updates` Node IPC 热更新。Tiny 不是 Node `fork` 宿主，原 Web 重连与 Tiny 的 Stop→Start 不等价。
+- `TestProfileUpdateWaitsUntilPendingInstallCompletes` 回放插件先写 `.dsh-pending-updates.json`、再改 `package.json` 的顺序：pending 存在期间不得触发，移除后清单连续稳定才报告一次。Manager 收到报告后终止自己的 DSH 进程树，并复用已安装 Runtime 重新认证启动；概览按钮通过公开 `Restart()` 入口完成同一进程级生命周期。
+- `TestImportMergesSettingsCredentialsAndWorkspaceData` 使用隔离临时目录同时回放已存在的 Tiny 设置、凭据和官方 `workspace` storage：来源独有的设置/DeepSeek 凭据/项目加入，同名值全部保留 Tiny；撤销后三个文件逐字节恢复到导入前版本。
+- `TestWorkspaceStorageMergeAddsProjectsAndKeepsTinyRecords` 验证官方 `{unit,global,tables}` 单文件格式按表记录键合并，Tiny 的同名记录和 global 不被来源覆盖。`storages` 已加入导入白名单；逐记录目录保持文件级补充，Windows junction 等不安全 reparse point 继续跳过。
+- 数据页请求改为 `ImportWithRestart` / `RestoreBackupWithRestart`：仅当 Tiny 原先活跃时自动停服，操作无论成功或失败都尝试恢复服务；前端超时放宽到 10 分钟，并明确显示自动停止/恢复语义。
+- 本地 `go test -count=1 ./...`、核心 race、`go vet ./...`、`go mod tidy -diff`、前端 6 项测试及 TypeScript 构建通过；核心测试包另交叉编译为 Windows x86-64/AArch64 PE。本机 macOS x86-64 打包成功，版本元数据为 `0.2.12`，`codesign --verify --deep --strict` 通过（仍仅为 ad-hoc 完整性）。交叉编译和打包产物随即删除。全部数据测试使用临时目录；未读取真实凭据值，未改动用户 `~/.dsh` 或 Tiny 正式数据目录。
+
 ## v0.2.11 Profile、Windows 导入与一键重启
 
 - 插件更新根因：Tiny 的 DSH 子进程已有独立 `DSH_HOME`，但未显式设置 `DSH_PROFILE_DIR`。`@michengai/dsh-codex-ui` 的 CLI fallback 用 `DSH_HOME` 调用 `dsh plugin --profile web add`，命令实际更新 Tiny Profile；其安装后校验却在变量缺失时回退到用户 `~/.dsh/profiles/web`。本机两个 manifest 的插件版本确实不同，稳定解释“命令结束但没有进入当前 Profile”。

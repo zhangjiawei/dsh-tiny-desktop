@@ -41,6 +41,8 @@ type ImportPreview = {
   credentials: boolean;
   skipped: number;
   skippedItems?: string[];
+  merged: number;
+  mergedItems?: string[];
   conflicts: number;
   conflictItems?: string[];
 };
@@ -68,7 +70,7 @@ function call(action: string, data: unknown = {}): Promise<any> {
     const timer = setTimeout(() => {
       if (pending.delete(id))
         reject(new Error(t(action === "status" ? "设置连接失败，正在重试。请退出并重新打开应用，仍失败请更新版本。" : "操作仍在处理中，请查看日志")));
-    }, action === "status" ? 8000 : 120000);
+    }, action === "status" ? 8000 : ["import", "restore"].includes(action) ? 600000 : 120000);
     pending.set(id, { resolve, reject, timer });
     try {
       System.invoke(JSON.stringify({ id, action, data }));
@@ -276,12 +278,14 @@ action("choose", async () => {
   if (!p) return;
   source = p.source;
   const skipped = p.skippedItems?.join("\n  ") || "";
+  const merged = p.mergedItems?.join("\n  ") || "";
   const conflicts = p.conflictItems?.join("\n  ") || "";
   const skippedMore = p.skipped > (p.skippedItems?.length || 0) ? "\n  …" : "";
+  const mergedMore = p.merged > (p.mergedItems?.length || 0) ? "\n  …" : "";
   const conflictsMore = p.conflicts > (p.conflictItems?.length || 0) ? "\n  …" : "";
   $("preview").textContent = language === "en"
-    ? `${source}\n${p.files} new files · ${(p.bytes / 1024 / 1024).toFixed(1)} MiB\n${p.conflicts} existing paths keep Tiny's version${conflicts ? `:\n  ${conflicts}${conflictsMore}` : ""}\n${p.skipped} unsupported items skipped${skipped ? `:\n  ${skipped}${skippedMore}` : ""}\n${p.credentials ? "Includes credentials" : "No credentials"}`
-    : `${source}\n可新增 ${p.files} 个文件 · ${(p.bytes / 1024 / 1024).toFixed(1)} MiB\n${p.conflicts} 个同名路径保留 Tiny 版本${conflicts ? `：\n  ${conflicts}${conflictsMore}` : ""}\n${p.skipped} 个不支持项已跳过${skipped ? `：\n  ${skipped}${skippedMore}` : ""}\n${p.credentials ? "包含敏感凭据" : "不包含凭据"}`;
+    ? `${source}\n${p.files} new files · ${(p.bytes / 1024 / 1024).toFixed(1)} MiB\n${p.merged} config/data files merge missing records${merged ? `:\n  ${merged}${mergedMore}` : ""}\n${p.conflicts} existing paths keep Tiny's version${conflicts ? `:\n  ${conflicts}${conflictsMore}` : ""}\n${p.skipped} unsupported items skipped${skipped ? `:\n  ${skipped}${skippedMore}` : ""}\n${p.credentials ? "Includes credentials" : "No credentials"}`
+    : `${source}\n可新增 ${p.files} 个文件 · ${(p.bytes / 1024 / 1024).toFixed(1)} MiB\n${p.merged} 个配置/数据文件按条目补充${merged ? `：\n  ${merged}${mergedMore}` : ""}\n${p.conflicts} 个同名路径保留 Tiny 版本${conflicts ? `：\n  ${conflicts}${conflictsMore}` : ""}\n${p.skipped} 个不支持项已跳过${skipped ? `：\n  ${skipped}${skippedMore}` : ""}\n${p.credentials ? "包含敏感凭据" : "不包含凭据"}`;
   $<HTMLButtonElement>("import").disabled = false;
 });
 $<HTMLInputElement>("credentials").onchange = () => {
@@ -291,15 +295,24 @@ $<HTMLInputElement>("credentials").onchange = () => {
 };
 action("import", async () => {
   if (!source) return;
-  importedBackup = await call("import", {
-    source,
-    credentials: $<HTMLInputElement>("credentials").checked,
-  });
-  $("restore").hidden = false;
-  $<HTMLButtonElement>("import").disabled = true;
-  notice("合并完成。Tiny 同名数据保持不变。");
+  const button = $<HTMLButtonElement>("import");
+  button.disabled = true;
+  notice("正在安全停止服务并合并数据，完成后会自动恢复…");
+  try {
+    const result: { backup: string; restarted: boolean } = await call("import", {
+      source,
+      credentials: $<HTMLInputElement>("credentials").checked,
+    });
+    importedBackup = result.backup;
+    $("restore").hidden = false;
+    notice(result.restarted ? "合并完成，DSH 已自动重新启动。" : "合并完成。Tiny 同名数据保持不变。");
+  } catch (error) {
+    button.disabled = false;
+    throw error;
+  }
 });
 action("restore", async () => {
+  notice("正在恢复导入前的数据，完成后会自动恢复服务…");
   await call("restore", { backup: importedBackup });
   $("restore").hidden = true;
   notice("已恢复备份");
