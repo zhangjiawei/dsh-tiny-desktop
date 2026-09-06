@@ -8,6 +8,9 @@
 - 兼容恢复回归覆盖：v0.2.12 孤立 ID 补入顺序；相同 path 的孤立记录合并且不覆盖 Tiny 的标题/时间；修复前文件逐字节备份；已经一致的文件保持逐字节不变。
 - 本机全新隔离 Profile 使用同一个 Windows 故障 ID 写入不一致 workspace 后，v0.2.13 在 DSH 启动前记录“已恢复 1 个导入工作空间的注册关系”；随后真实 DSH 在 62921 完成 token 认证，六插件（当次 latest：codex-ui 0.2.104、im-connect 0.1.34、automation 0.1.31、dshmarket 1.44.0、task-complete-notify 0.2.0、better-sidebar 0.18.0）和三处原生 PTY 均通过，受管进程正常停止。
 - 本地 `go test ./...`、核心 race、全量 vet、`go mod tidy -diff`、前端测试/构建和 Windows amd64/arm64 交叉编译通过。真实恢复隔离目录约 1.3 GiB 已完整删除，测试端口 62921 已释放且没有遗留相关进程。
+- main 工作流 [`34025266838`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34025266838) 六平台全部通过；Windows x64 job `101464999308` 与 Windows ARM64 job `101464999181` 均先用故障夹具完成启动前恢复，再通过真实 DSH、正式 PE GUI 打包及原生 WebView2 控制桥。
+- 正式标签工作流 [`34025899664`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34025899664) 的六个平台和 release job `101468215777` 全部成功；Windows x64 job `101466683365`、Windows ARM64 job `101466683391` 再次通过同一恢复与原生桌面门禁，创建公开预览版 [`v0.2.13`](https://github.com/zhangjiawei/dsh-tiny-desktop/releases/tag/v0.2.13)。
+- 从公开 Release 重新下载六个归档及 `SHA256SUMS.txt`，六项 SHA-256 全部匹配。解压确认 Mach-O x86_64/arm64、PE GUI x86-64/Aarch64、ELF x86-64/aarch64；两个 macOS 包版本均为 0.2.13，并通过 `codesign --verify --deep --strict`。下载、解压、交叉编译和隔离运行时目录均在验证后删除，工程 `dist` / `bin` 保持为空。
 
 ## v0.2.12 插件更新重启与按记录数据合并
 
