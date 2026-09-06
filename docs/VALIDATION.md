@@ -8,7 +8,9 @@
 - 设置页在 1000×800 浏览器视口完成中文托管与高级自定义两种状态的视觉检查；三节点版本轨道、模式标记、字段、说明和操作按钮没有横向溢出，并复用现有绿白色、圆角、字号和响应式规则。该模拟 bridge 只用于布局，不替代原生 Wails/DSH 验证。
 - 本机全新隔离根目录完成 Node 24.20.0 下载校验、当次六插件 latest、DSH 0.1.2-rc.1 认证就绪和原生 PTY；随后将隔离回执标为旧版本，真实触发同盘 staging 安装、动态原生依赖 rebuild、原子版本指针、认证重启及“旧槽位→升级槽位”双向回退。服务先后在 52484、52526、52554、52559、52562 就绪，最终正常停止；没有遗留监听端口。
 - 本地前端 8 项测试/TypeScript 构建、Go 全量测试、核心 race、vet、模块 diff、Windows x64/ARM64 核心测试交叉编译和 GUI 子系统交叉构建通过。macOS x86-64 包版本 0.3.0、最低系统 13.0，ad-hoc `codesign --verify --deep --strict` 通过。1.2 GiB 真实隔离运行时、临时浏览器 bridge、交叉编译文件与打包产物在验证/提交前按明确路径清理。
-- GitHub 六平台原生发布结果将在标签工作流完成后补记。
+- 最终 main 工作流 [`34031669306`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34031669306) 在提交 `025062d` 上六个平台全部成功；macOS Intel/ARM64、Windows x64/ARM64、Linux x64/ARM64 均完成真实托管安装、升级、认证就绪与一代回退闭环，main 事件的 release job 按设计跳过。
+- 正式标签工作流 [`34033776644`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34033776644) 的六个平台 build 与 release job [`101490363474`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34033776644/job/101490363474) 全部成功，创建公开预览版 [`v0.3.0`](https://github.com/zhangjiawei/dsh-tiny-desktop/releases/tag/v0.3.0)。Windows x64 job `101488027359` 与 Windows ARM64 job `101488027372` 均通过最终发布源码的真实 DSH 与原生桌面门禁。
+- 发布后从公开 Release 重新下载六个平台归档及 `SHA256SUMS.txt`；公开元数据尺寸与下载文件一致，六项 SHA-256 全部匹配。解包确认 Mach-O x86_64/arm64、Windows GUI PE x86-64/AArch64、Linux ELF x86-64/AArch64 与资产命名一致；两个 Mac App 的版本均为 0.3.0，并通过 `codesign --verify --deep --strict`。签名仍为 ad-hoc，不代表 Apple 公证；Windows 仍未商业签名。下载与解压目录在验证后删除，工程 `dist` / `bin` 保持为空。
 
 ## v0.2.13 workspace 注册一致性恢复
 
