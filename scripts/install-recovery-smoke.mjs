@@ -10,7 +10,17 @@ const base=process.env.DSH_TINY_TEST_BASE || process.env.RUNNER_TEMP;
 assert.ok(base && root.startsWith(resolve(base)+sep), 'requires a disposable test root under RUNNER_TEMP or DSH_TINY_TEST_BASE');
 const data=join(root,'dsh'), profile=join(data,'profiles','web');
 const manifestPath=join(profile,'package.json'), lockPath=join(profile,'pnpm-lock.yaml');
-const receiptPath=join(root,'runtime','receipt.json'), receiptBackup=receiptPath+'.recovery-fixture';
+const runtimeRoot=join(root,'runtime'), legacyRuntime=join(runtimeRoot,'dsh');
+let activeRuntime=legacyRuntime;
+try {
+  const managed=JSON.parse(await readFile(join(runtimeRoot,'managed-runtime.json'),'utf8'));
+  activeRuntime=resolve(managed.current.dir);
+  assert.ok(activeRuntime.startsWith(runtimeRoot+sep),'managed runtime escaped disposable root');
+} catch (error) {
+  if (error.code!=='ENOENT') throw error;
+}
+const receiptPath=activeRuntime===legacyRuntime ? join(runtimeRoot,'receipt.json') : join(activeRuntime,'receipt.json');
+const receiptBackup=receiptPath+'.recovery-fixture';
 const [originalManifest,originalLock,originalReceipt]=await Promise.all([manifestPath,lockPath,receiptPath].map(p=>readFile(p)));
 const receipt=JSON.parse(originalReceipt), manifest=JSON.parse(originalManifest);
 assert.equal(receipt.Plugins.length,6,'requires the production six-plugin smoke fixture');
@@ -26,10 +36,10 @@ let succeeded=false;
 try {
   await writeFile(manifestPath,JSON.stringify(manifest,null,2));
   await rename(receiptPath,receiptBackup);
-  const cli=join(root,'runtime','dsh','node_modules','@deepseek-ai','dsh','lib','bin.js');
+  const cli=join(activeRuntime,'node_modules','@deepseek-ai','dsh','lib','bin.js');
   const privateBin=join(root,'runtime','tools','node_modules','.bin');
   const broken=spawnSync(process.execPath,[cli,'plugin','--profile','web','install','--registry=https://registry.npmmirror.com'],{
-    env:{...process.env,CI:'true',DSH_HOME:data,PATH:[privateBin,dirname(process.execPath),process.env.PATH].join(delimiter)},encoding:'utf8',timeout:30000,
+    env:{...process.env,CI:'true',DSH_HOME:data,DSH_PROFILE_DIR:profile,DSH_RUNTIME_DIR:activeRuntime,PATH:[privateBin,dirname(process.execPath),process.env.PATH].join(delimiter)},encoding:'utf8',timeout:30000,
   });
   assert.notEqual(broken.status,0,'stale lock fixture did not reproduce');
   assert.match((broken.stdout || '')+(broken.stderr || ''),/ERR_PNPM_OUTDATED_LOCKFILE/);
