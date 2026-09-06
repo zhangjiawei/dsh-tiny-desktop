@@ -23,7 +23,7 @@ func (m *Manager) VerifyInstallation(ctx context.Context) error {
 		s = m.activeSettings
 	}
 	m.mu.Unlock()
-	i := Installer{m.paths, s, &m.log}
+	i := Installer{Paths: m.paths, Settings: s, Log: &m.log}
 	r, err := i.Ensure(ctx)
 	if err != nil {
 		return err
@@ -58,10 +58,10 @@ func (m *Manager) VerifyInstallation(ctx context.Context) error {
 			return fmt.Errorf("插件未按固定版本注册: %s", p.Name)
 		}
 	}
-	dirs := []string{filepath.Join(m.paths.Runtime, "dsh"), filepath.Join(m.paths.Data, "profiles/web")}
+	dirs := []string{runtimeDir(r, m.paths), filepath.Join(m.paths.Data, "profiles/web")}
 	parsed, parseErr := ParseCommand(s.Command)
 	_, managedDefault := managedWindowsDefaultDLX(parsed, runtime.GOOS)
-	if parseErr == nil && strings.Contains(s.Command, "dlx") && !managedDefault {
+	if s.RuntimeMode == RuntimeModeCustom && parseErr == nil && strings.Contains(s.Command, "dlx") && !managedDefault {
 		// A genuinely custom dlx command must exercise its actual cache, not only
 		// the managed CLI. The Windows default intentionally reuses the already
 		// verified private DSH to avoid pnpm's no-console postinstall pipe race.

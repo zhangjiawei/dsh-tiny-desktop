@@ -36,6 +36,30 @@ test("overview provides a real one-click service restart", async () => {
   assert.match(backend, /case "restartService":[\s\S]*manager\.Restart\(\)/);
 });
 
+test("runtime settings keep managed and custom version ownership separate", async () => {
+  const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
+  const client = await readFile(new URL("../frontend/src/main.ts", import.meta.url), "utf8");
+  const backend = await readFile(new URL("../cmd/desktop/main.go", import.meta.url), "utf8");
+  assert.match(html, /id="runtime-mode"[\s\S]*value="managed"[\s\S]*value="custom"/);
+  assert.match(html, /id="dsh-channel"[\s\S]*value="recommended"[\s\S]*value="stable"[\s\S]*value="preview"[\s\S]*value="fixed"/);
+  assert.match(html, /普通启动时静默升级/);
+  assert.match(html, /id="extra-args"/);
+  assert.match(html, /id="custom-runtime" hidden/);
+  for (const action of ["checkDSHUpdate", "applyDSHUpdate", "rollbackDSH"])
+    assert.match(client, new RegExp(`call\\("${action}"\\)`));
+  assert.match(backend, /case "applyDSHUpdate":[\s\S]*manager\.ApplyDSHUpdate/);
+  assert.match(backend, /case "rollbackDSH":[\s\S]*manager\.RollbackDSH/);
+});
+
+test("runtime updater has a visually consistent three-node track", async () => {
+  const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
+  const css = await readFile(new URL("../frontend/src/style.css", import.meta.url), "utf8");
+  assert.match(html, /runtime-node[\s\S]*dsh-current[\s\S]*runtime-node candidate[\s\S]*dsh-target[\s\S]*runtime-node rollback[\s\S]*dsh-previous/);
+  assert.match(css, /\.runtime-track\s*\{[\s\S]*grid-template-columns/);
+  assert.match(css, /\.runtime-node\.candidate\s*\{[\s\S]*var\(--green-soft\)/);
+  assert.match(css, /@media \(max-width: 680px\)[\s\S]*\.runtime-track/);
+});
+
 test("import preview exposes Tiny-wins merge and skipped entries", async () => {
   const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
   const client = await readFile(new URL("../frontend/src/main.ts", import.meta.url), "utf8");

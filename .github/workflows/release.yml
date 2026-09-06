@@ -48,7 +48,7 @@ jobs:
         if: matrix.goarch == 'amd64'
         run: go test -race ./internal/core
       - name: Real isolated DSH startup and shutdown
-        run: go run ./cmd/smoke --root "${{ runner.temp }}/dsh-tiny-smoke"
+        run: go run ./cmd/smoke --root "${{ runner.temp }}/dsh-tiny-smoke" --managed-update
       - name: Recover v0.2.12 workspace registry before DSH boot
         run: go run ./cmd/smoke --root "${{ runner.temp }}/dsh-tiny-smoke" --workspace-recovery
       - name: Recover interrupted installation without losing data

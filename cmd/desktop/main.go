@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"io/fs"
 	"log"
@@ -17,7 +18,7 @@ import (
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
 )
 
-var version = "0.2.13"
+var version = "0.3.0"
 
 // QA builds may override this via -ldflags to test in an isolated app instance.
 var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
@@ -116,6 +117,18 @@ func main() {
 					if e == nil {
 						result = manager.Snapshot()
 					}
+				case "checkDSHUpdate":
+					ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+					result, e = manager.CheckDSHUpdate(ctx)
+					cancel()
+				case "applyDSHUpdate":
+					ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+					result, e = manager.ApplyDSHUpdate(ctx)
+					cancel()
+				case "rollbackDSH":
+					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+					result, e = manager.RollbackDSH(ctx)
+					cancel()
 				case "quit":
 					result = true // Normal app shutdown stops the owned DSH process tree.
 				case "open":

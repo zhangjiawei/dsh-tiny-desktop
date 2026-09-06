@@ -112,11 +112,12 @@ func TestSaveWhileRunningNeverStopsService(t *testing.T) {
 	}
 	s.Port = 3080
 	s.AutoStart = false
+	s.DSHChannel = DSHChannelPreview
 	if err = m.Configure(s); err != nil {
 		t.Fatal(err)
 	}
 	if m.Snapshot().RestartRequired {
-		t.Fatal("appearance/auto-start changes require no service restart")
+		t.Fatal("appearance/auto-start/update-policy changes require no service restart")
 	}
 	s.Port = 0
 	if m.Configure(s) == nil || m.Snapshot().Settings.Port != 3080 {
@@ -152,7 +153,7 @@ func TestLatestPluginsResolveAndReceiptFreezesVersions(t *testing.T) {
 	p, _ := NewPaths(t.TempDir())
 	s := Defaults()
 	s.Registry = server.URL
-	i := Installer{p, s, &Log{}}
+	i := Installer{Paths: p, Settings: s, Log: &Log{}}
 	selected, e := i.resolvePlugins(context.Background())
 	if e != nil || len(selected) != 6 {
 		t.Fatalf("%v %v", selected, e)
@@ -208,7 +209,7 @@ func TestExistingInstallReusesReceiptWithoutRegistryAccess(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(p.Runtime, "receipt.json"), b, 0600); err != nil {
 		t.Fatal(err)
 	}
-	i := Installer{p, s, &Log{}}
+	i := Installer{Paths: p, Settings: s, Log: &Log{}}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if _, err = i.Ensure(ctx); err != nil {

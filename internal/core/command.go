@@ -103,6 +103,58 @@ func trustedHost(args []string) string {
 	return ""
 }
 
+// ParseManagedArgs validates only the optional arguments appended to Tiny's
+// managed `dsh web` command. The executable, subcommand, port, listener and
+// authentication remain owned by the desktop shell.
+func ParseManagedArgs(value string) ([]string, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+	args, err := ParseCommand("dsh web " + value)
+	if err != nil {
+		return nil, err
+	}
+	return append([]string(nil), args[2:]...), nil
+}
+
+func legacyManagedCommand(command string) ([]string, bool) {
+	args, err := ParseCommand(command)
+	if err != nil {
+		return nil, false
+	}
+	if len(args) == 0 {
+		return nil, true
+	}
+	for _, base := range []string{ManagedCommand, DefaultCommand} {
+		expected, _ := ParseCommand(base)
+		stripped := make([]string, 0, len(args))
+		extra := make([]string, 0, 2)
+		for index := 0; index < len(args); index++ {
+			key, _, inline := strings.Cut(args[index], "=")
+			if key != "--trusted-host" {
+				stripped = append(stripped, args[index])
+				continue
+			}
+			extra = append(extra, args[index])
+			if !inline && index+1 < len(args) {
+				index++
+				extra = append(extra, args[index])
+			}
+		}
+		if len(stripped) != len(expected) {
+			continue
+		}
+		match := true
+		for index := range expected {
+			match = match && stripped[index] == expected[index]
+		}
+		if match {
+			return extra, true
+		}
+	}
+	return nil, false
+}
+
 func managedWindowsDefaultDLX(args []string, osName string) ([]string, bool) {
 	if osName != "windows" {
 		return nil, false
@@ -137,6 +189,13 @@ func managedWindowsDefaultDLX(args []string, osName string) ([]string, bool) {
 }
 
 func (i *Installer) launchCommand(r Runtime) (string, []string, error) {
+	if i.Settings.RuntimeMode == RuntimeModeManaged {
+		extra, err := ParseManagedArgs(i.Settings.ExtraArgs)
+		if err != nil {
+			return "", nil, err
+		}
+		return r.Node, append([]string{r.CLI, "web"}, extra...), nil
+	}
 	args, err := ParseCommand(i.Settings.Command)
 	if err != nil {
 		return "", nil, err

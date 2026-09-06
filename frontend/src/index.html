@@ -42,7 +42,7 @@
           <span>退出应用</span>
         </button>
         <span class="local-dot"></span><span>本地运行 · 数据独立</span
-        ><small>v0.2.13</small>
+        ><small>v0.3.0</small>
       </footer>
     </aside>
     <main>
@@ -134,6 +134,68 @@
             /></label>
           </div>
           <div class="panel settings-group">
+            <div class="group-heading">
+              <div><h3>DSH 运行时</h3><p>版本由一个入口管理，升级失败会自动恢复。</p></div>
+              <span id="runtime-mode-badge" class="mode-badge">Tiny 托管</span>
+            </div>
+            <div class="setting-row">
+              <label for="runtime-mode">运行模式<small>推荐使用 Tiny 托管；完整命令适合高级用户。</small></label>
+              <select id="runtime-mode">
+                <option value="managed">Tiny 托管</option>
+                <option value="custom">自定义完整命令</option>
+              </select>
+            </div>
+            <div id="managed-runtime">
+              <div class="runtime-track" aria-label="DSH 版本状态">
+                <div class="runtime-node"><span>当前</span><strong id="dsh-current">—</strong></div>
+                <div class="runtime-line"></div>
+                <div class="runtime-node candidate"><span>目标</span><strong id="dsh-target">待检查</strong></div>
+                <div class="runtime-line muted"></div>
+                <div class="runtime-node rollback"><span>可回退</span><strong id="dsh-previous">无</strong></div>
+              </div>
+              <div class="field-grid runtime-fields">
+                <div class="field">
+                  <label for="dsh-channel">更新通道</label>
+                  <select id="dsh-channel">
+                    <option value="recommended">Tiny 推荐（已验证）</option>
+                    <option value="stable">正式稳定版</option>
+                    <option value="preview">预览版（latest / next）</option>
+                    <option value="fixed">固定版本</option>
+                  </select>
+                  <small>推荐通道随 Tiny 版本发布并经过完整测试；不会在普通启动时静默升级。</small>
+                </div>
+                <div class="field" id="fixed-version-field" hidden>
+                  <label for="fixed-dsh-version">固定 DSH 版本</label>
+                  <input id="fixed-dsh-version" placeholder="0.1.2-rc.1" spellcheck="false" />
+                  <small>必须填写完整版本号，不接受 latest 等浮动标签。</small>
+                </div>
+              </div>
+              <div class="field">
+                <label for="extra-args">附加启动参数</label>
+                <textarea id="extra-args" rows="2" placeholder="例如：--trusted-host 172.16.8.136" spellcheck="false"></textarea>
+                <small>Tiny 固定管理 web、--no-open、端口、监听地址和认证；仅可追加安全参数。局域网 IP 留空时自动选择默认路由网卡。</small>
+              </div>
+              <div class="runtime-actions">
+                <span id="dsh-update-status" role="status">选择通道后检查版本，不影响正在运行的服务。</span>
+                <div class="actions">
+                  <button type="button" id="check-dsh-update">检查 DSH 更新</button>
+                  <button type="button" id="rollback-dsh">回退上一版本</button>
+                  <button type="button" id="apply-dsh-update" class="primary">升级并验证</button>
+                </div>
+              </div>
+            </div>
+            <div id="custom-runtime" hidden>
+              <div class="custom-warning">高级模式：Tiny 不再决定 DSH 版本，也不会执行自动升级或回退。</div>
+              <div class="field">
+                <div class="field-heading">
+                  <label for="command">自定义完整启动命令</label><button type="button" id="command-example" class="text-button">填入 pnpm dlx 示例</button>
+                </div>
+                <textarea id="command" rows="3" placeholder="启动程序及参数" spellcheck="false"></textarea>
+                <small>命令按原样执行，不经过 Shell。禁止管道、变量、重定向以及覆盖端口、监听地址或认证。切回托管模式不会删除这里的内容。</small>
+              </div>
+            </div>
+          </div>
+          <div class="panel settings-group">
             <h3>启动与网络</h3>
             <label class="toggle-row" for="autostart"
               ><span
@@ -142,23 +204,6 @@
                 ></span
               ><input id="autostart" type="checkbox"
             /></label>
-            <div class="field">
-              <div class="field-heading">
-                <label for="command">自定义启动命令</label
-                ><button type="button" id="command-example" class="text-button">
-                  恢复默认命令
-                </button>
-              </div>
-              <textarea
-                id="command"
-                rows="3"
-                placeholder="启动程序及参数"
-                spellcheck="false"
-              ></textarea
-              ><small
-                >支持带引号的路径和参数；不支持 Shell 管道、变量、重定向或多条命令。端口、监听地址和认证由应用管理；局域网分享可选填 --trusted-host 私有 IPv4，未填写则使用默认路由网卡地址。请勿填写 --port、--host、--token 或关闭认证的参数。pnpm 使用应用内置环境，仅允许示例中列出的必要安装脚本。</small
-              >
-            </div>
             <div class="field-grid">
               <div class="field">
                 <label for="port-input">首选端口</label
@@ -208,7 +253,7 @@
           <div class="form-footer">
             <span id="settings-status" role="status">保存不会中断服务，启动参数在下次启动时生效。</span>
             <div class="actions">
-              <button type="submit">保存设置</button
+              <button type="submit" id="save-settings">保存设置</button
               ><button type="button" id="apply-restart" class="primary">
                 应用并重启
               </button>

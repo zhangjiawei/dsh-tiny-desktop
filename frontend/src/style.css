@@ -380,6 +380,101 @@ small {
   padding: 17px 0;
   border-bottom: 1px solid var(--line);
 }
+.group-heading {
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.group-heading h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.group-heading p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.mode-badge {
+  flex-shrink: 0;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 600;
+}
+.mode-badge.custom {
+  background: #f1f2f1;
+  color: #68706b;
+}
+.runtime-track {
+  display: grid;
+  grid-template-columns: minmax(118px, 1fr) 28px minmax(118px, 1fr) 28px minmax(118px, 1fr);
+  align-items: center;
+  padding: 20px 0 14px;
+}
+.runtime-node {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid #dfe6e1;
+  border-radius: 8px;
+  background: #fbfcfb;
+}
+.runtime-node.candidate {
+  border-color: #b9d9c4;
+  background: var(--green-soft);
+}
+.runtime-node span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-bottom: 3px;
+}
+.runtime-node strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.runtime-line {
+  height: 1px;
+  background: #b9d9c4;
+}
+.runtime-line.muted {
+  background: #dfe4e0;
+}
+.runtime-fields {
+  margin-top: 4px;
+}
+.runtime-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0 18px;
+  border-top: 1px solid #eef0ee;
+}
+.runtime-actions > span {
+  max-width: 330px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.runtime-actions .actions {
+  margin: 0;
+  flex-shrink: 0;
+}
+.custom-warning {
+  margin: 18px 0 0;
+  padding: 10px 12px;
+  border-left: 3px solid #d8a34a;
+  background: #fff8e9;
+  color: #755820;
+  font-size: 12px;
+}
 .setting-row,
 .toggle-row {
   display: flex;
@@ -745,6 +840,17 @@ textarea:focus-visible {
   }
   .field-grid {
     gap: 12px;
+  }
+  .runtime-track {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .runtime-line {
+    display: none;
+  }
+  .runtime-actions {
+    align-items: flex-start;
+    flex-direction: column;
   }
   .runtime,
   .plugins,

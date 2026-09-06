@@ -23,8 +23,13 @@ type installReceipt struct {
 var exactVersion = regexp.MustCompile(`^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
 
 func (i *Installer) readReceipt() (installReceipt, error) {
+	_, dir := i.activeRuntime()
+	return i.readReceiptAt(i.receiptPath(dir))
+}
+
+func (i *Installer) readReceiptAt(path string) (installReceipt, error) {
 	var receipt installReceipt
-	b, err := os.ReadFile(filepath.Join(i.Paths.Runtime, "receipt.json"))
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return receipt, err
 	}
@@ -47,6 +52,13 @@ func (i *Installer) readReceipt() (installReceipt, error) {
 		receipt.Registry = "https://registry.npmjs.org"
 	}
 	return receipt, err
+}
+
+func (i *Installer) receiptPath(dshDir string) string {
+	if dshDir == "" || filepath.Clean(dshDir) == filepath.Join(i.Paths.Runtime, "dsh") {
+		return filepath.Join(i.Paths.Runtime, "receipt.json")
+	}
+	return filepath.Join(dshDir, "receipt.json")
 }
 func (i *Installer) resolvePlugins(ctx context.Context) ([]Plugin, error) {
 	selected := append([]Plugin(nil), Plugins...)

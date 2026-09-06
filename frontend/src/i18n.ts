@@ -1,6 +1,40 @@
 // Keep translation at the shell boundary. Never rewrite or inject the DSH DOM.
 export let language = "en";
 const en: Record<string, string> = {
+  "DSH 运行时": "DSH runtime",
+  "版本由一个入口管理，升级失败会自动恢复。": "One source of truth for versions, with automatic recovery after a failed upgrade.",
+  "Tiny 托管": "Managed by Tiny",
+  运行模式: "Runtime mode",
+  "推荐使用 Tiny 托管；完整命令适合高级用户。": "Tiny-managed mode is recommended; full commands are for advanced use.",
+  自定义完整命令: "Custom full command",
+  当前: "Current",
+  目标: "Target",
+  可回退: "Rollback",
+  待检查: "Not checked",
+  无: "None",
+  更新通道: "Update channel",
+  "Tiny 推荐（已验证）": "Tiny recommended (verified)",
+  正式稳定版: "Stable release",
+  "预览版（latest / next）": "Preview (latest / next)",
+  固定版本: "Pinned version",
+  "推荐通道随 Tiny 版本发布并经过完整测试；不会在普通启动时静默升级。": "The recommended channel ships with each tested Tiny release. Ordinary launches never update silently.",
+  "固定 DSH 版本": "Pinned DSH version",
+  "必须填写完整版本号，不接受 latest 等浮动标签。": "Enter an exact version; floating tags such as latest are not accepted.",
+  附加启动参数: "Additional launch arguments",
+  "Tiny 固定管理 web、--no-open、端口、监听地址和认证；仅可追加安全参数。局域网 IP 留空时自动选择默认路由网卡。": "Tiny owns web, --no-open, the port, listener and authentication. Only safe arguments may be appended. Leave the LAN IP empty to use the default-route adapter.",
+  "选择通道后检查版本，不影响正在运行的服务。": "Check the selected channel without interrupting the running service.",
+  "当前已是所选通道版本": "The selected channel is current.",
+  "检查 DSH 更新": "Check DSH update",
+  "回退上一版本": "Rollback previous version",
+  "升级并验证": "Upgrade & verify",
+  "高级模式：Tiny 不再决定 DSH 版本，也不会执行自动升级或回退。": "Advanced mode: Tiny no longer controls the DSH version and cannot upgrade or roll it back.",
+  "自定义完整启动命令": "Custom full command",
+  "命令按原样执行，不经过 Shell。禁止管道、变量、重定向以及覆盖端口、监听地址或认证。切回托管模式不会删除这里的内容。": "The command runs as entered without a shell. Pipes, variables, redirects and overrides for port, listener or authentication are forbidden. Switching back to managed mode keeps this value.",
+  "自定义命令": "Custom command",
+  "正在升级 DSH；失败会自动恢复旧版本…": "Upgrading DSH; the previous version will be restored on failure…",
+  "DSH 升级完成": "DSH upgrade complete.",
+  "正在回退 DSH；当前数据会先建立恢复点…": "Rolling DSH back after creating a recovery point…",
+  "DSH 已回退到上一版本": "DSH rolled back to the previous version.",
   设置: "Settings",
   退出应用: "Quit app",
   确认退出: "Confirm quit",
@@ -214,7 +248,7 @@ export function setLanguage(choice: string, system: string) {
     const node = walker.currentNode;
     if (
       node.parentElement?.closest(
-        "#phase,#headline,#error,#log-output,#notice,#preview,#data-path,#port,#share-title,#share-warning",
+        "#phase,#headline,#error,#log-output,#notice,#preview,#data-path,#port,#share-title,#share-warning,#dsh-current,#dsh-target,#dsh-previous,#dsh-update-status,#runtime-mode-badge",
       )
     )
       continue;

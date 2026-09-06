@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -20,6 +21,12 @@ const PnpmVersion = "10.28.0"
 const DefaultRegistry = "https://registry.npmmirror.com"
 const DefaultCommand = "pnpm --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=node-pty --allow-build=koffi dlx @deepseek-ai/dsh@" + DSHVersion + " web"
 const ManagedCommand = "dsh web"
+const RuntimeModeManaged = "managed"
+const RuntimeModeCustom = "custom"
+const DSHChannelRecommended = "recommended"
+const DSHChannelStable = "stable"
+const DSHChannelPreview = "preview"
+const DSHChannelFixed = "fixed"
 
 type Plugin struct {
 	Name    string `json:"name"`
@@ -36,23 +43,27 @@ var Plugins = []Plugin{
 }
 
 type Settings struct {
-	Port           int    `json:"port"`
-	Proxy          string `json:"proxy"`
-	LAN            bool   `json:"lan"`
-	HideOnClose    bool   `json:"hideOnClose"`
-	TrayOnly       bool   `json:"trayOnly"`
-	AutoStart      bool   `json:"autoStart"`
-	AlwaysOnTop    bool   `json:"alwaysOnTop"`
-	Language       string `json:"language"`
-	Command        string `json:"command"`
-	Registry       string `json:"registry"`
-	StartupMinutes int    `json:"startupMinutes"`
-	Width          int    `json:"width"`
-	Height         int    `json:"height"`
+	Port            int    `json:"port"`
+	Proxy           string `json:"proxy"`
+	LAN             bool   `json:"lan"`
+	HideOnClose     bool   `json:"hideOnClose"`
+	TrayOnly        bool   `json:"trayOnly"`
+	AutoStart       bool   `json:"autoStart"`
+	AlwaysOnTop     bool   `json:"alwaysOnTop"`
+	Language        string `json:"language"`
+	RuntimeMode     string `json:"runtimeMode"`
+	DSHChannel      string `json:"dshChannel"`
+	FixedDSHVersion string `json:"fixedDshVersion"`
+	ExtraArgs       string `json:"extraArgs"`
+	Command         string `json:"command"`
+	Registry        string `json:"registry"`
+	StartupMinutes  int    `json:"startupMinutes"`
+	Width           int    `json:"width"`
+	Height          int    `json:"height"`
 }
 
 func Defaults() Settings {
-	return Settings{Port: 3080, LAN: true, TrayOnly: true, HideOnClose: true, AutoStart: true, Language: "system", Command: DefaultCommand, Registry: DefaultRegistry, StartupMinutes: 60, Width: 1280, Height: 840}
+	return Settings{Port: 3080, LAN: true, TrayOnly: true, HideOnClose: true, AutoStart: true, Language: "system", RuntimeMode: RuntimeModeManaged, DSHChannel: DSHChannelRecommended, FixedDSHVersion: DSHVersion, Command: DefaultCommand, Registry: DefaultRegistry, StartupMinutes: 60, Width: 1280, Height: 840}
 }
 func (s Settings) Validate() error {
 	if s.Port < 1024 || s.Port > 65535 {
@@ -71,8 +82,26 @@ func (s Settings) Validate() error {
 	if s.StartupMinutes < 1 || s.StartupMinutes > 120 {
 		return errors.New("启动等待时间必须在 1–120 分钟之间")
 	}
-	if _, err := ParseCommand(s.Command); err != nil {
+	if s.RuntimeMode != RuntimeModeManaged && s.RuntimeMode != RuntimeModeCustom {
+		return errors.New("请选择有效的 DSH 运行模式")
+	}
+	if s.RuntimeMode == RuntimeModeManaged {
+		switch s.DSHChannel {
+		case DSHChannelRecommended, DSHChannelStable, DSHChannelPreview:
+		case DSHChannelFixed:
+			if !exactVersion.MatchString(s.FixedDSHVersion) {
+				return errors.New("固定 DSH 版本必须是完整版本号，例如 0.1.2-rc.1")
+			}
+		default:
+			return errors.New("请选择有效的 DSH 更新通道")
+		}
+		if _, err := ParseManagedArgs(s.ExtraArgs); err != nil {
+			return err
+		}
+	} else if args, err := ParseCommand(s.Command); err != nil {
 		return err
+	} else if len(args) == 0 {
+		return errors.New("自定义命令模式必须填写完整启动命令")
 	}
 	if s.Proxy != "" {
 		u, err := url.Parse(s.Proxy)
@@ -125,6 +154,25 @@ func (p Paths) LoadSettings() (Settings, error) {
 	// to dlx (which may need a first download). New profiles use DefaultCommand.
 	if command, exists := fields["command"]; !exists || string(command) == `""` {
 		s.Command = ManagedCommand
+	}
+	// v0.2 and earlier exposed one full command. Migrate only commands that are
+	// byte-for-byte equivalent to Tiny's historical managed launch; every truly
+	// custom command is preserved and opts into advanced mode.
+	if _, exists := fields["runtimeMode"]; !exists {
+		if extra, managed := legacyManagedCommand(s.Command); managed {
+			s.RuntimeMode = RuntimeModeManaged
+			s.DSHChannel = DSHChannelRecommended
+			s.FixedDSHVersion = DSHVersion
+			s.ExtraArgs = strings.Join(extra, " ")
+		} else {
+			s.RuntimeMode = RuntimeModeCustom
+		}
+	}
+	if s.DSHChannel == "" {
+		s.DSHChannel = DSHChannelRecommended
+	}
+	if s.FixedDSHVersion == "" {
+		s.FixedDSHVersion = DSHVersion
 	}
 	// v0.1 had a hardcoded Chinese default but no language chooser. Upgrade that
 	// implicit default to system; retain an explicitly configured English value.

@@ -13,11 +13,15 @@ import (
 	"time"
 )
 
-type Runtime struct{ Node, NPM, CLI, Bin string }
+type Runtime struct{ Node, NPM, CLI, Bin, DSHDir, Version string }
 type Installer struct {
 	Paths    Paths
 	Settings Settings
 	Log      *Log
+	// TargetVersion/TargetDir are populated only by the managed updater.
+	TargetVersion string
+	TargetDir     string
+	PinnedPlugins []Plugin
 }
 
 func (i *Installer) environment(r Runtime) []string {
@@ -38,7 +42,7 @@ func (i *Installer) environment(r Runtime) []string {
 	env = append(env,
 		"DSH_HOME="+i.Paths.Data,
 		"DSH_PROFILE_DIR="+filepath.Join(i.Paths.Data, "profiles", "web"),
-		"DSH_RUNTIME_DIR="+filepath.Join(i.Paths.Runtime, "dsh"),
+		"DSH_RUNTIME_DIR="+runtimeDir(r, i.Paths),
 		"PATH="+r.Bin+string(os.PathListSeparator)+filepath.Dir(r.Node)+string(os.PathListSeparator)+os.Getenv("PATH"),
 		"CI=true",
 	)
@@ -47,6 +51,13 @@ func (i *Installer) environment(r Runtime) []string {
 		env = append(env, "HTTP_PROXY="+i.Settings.Proxy, "HTTPS_PROXY="+i.Settings.Proxy)
 	}
 	return env
+}
+
+func runtimeDir(r Runtime, paths Paths) string {
+	if r.DSHDir != "" {
+		return r.DSHDir
+	}
+	return filepath.Join(paths.Runtime, "dsh")
 }
 func (i *Installer) run(ctx context.Context, r Runtime, args ...string) error {
 	if err := ctx.Err(); err != nil {
@@ -234,23 +245,41 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	}
 	toolsDir := filepath.Join(i.Paths.Runtime, "tools")
 	r.Bin = filepath.Join(toolsDir, "node_modules/.bin")
-	r.CLI = filepath.Join(i.Paths.Runtime, "dsh/node_modules/@deepseek-ai/dsh/lib/bin.js")
-	receipt := filepath.Join(i.Paths.Runtime, "receipt.json")
-	previous, receiptErr := i.readReceipt()
+	version, dshDir := i.TargetVersion, i.TargetDir
+	if version == "" {
+		version, dshDir = i.activeRuntime()
+	}
+	if version == "" {
+		version = DSHVersion
+	}
+	if dshDir == "" {
+		dshDir = filepath.Join(i.Paths.Runtime, "dsh")
+	}
+	r.Version, r.DSHDir = version, dshDir
+	r.CLI = filepath.Join(dshDir, "node_modules/@deepseek-ai/dsh/lib/bin.js")
+	receipt := i.receiptPath(dshDir)
+	previous, receiptErr := i.readReceiptAt(receipt)
 	// Preserve legacy pinned receipts too: ordinary launches must not silently
 	// upgrade plugins that are already installed in an existing user's profile.
 	// Registry is provenance, not installation identity: changing a mirror must
 	// not reinitialise a completed profile or silently upgrade its plugins.
-	if receiptErr == nil && previous.DSH == DSHVersion && previous.PNPM == PnpmVersion {
+	if receiptErr == nil && previous.DSH == version && previous.PNPM == PnpmVersion {
 		if _, e := os.Stat(r.CLI); e == nil {
 			return r, nil
 		}
 	}
-	selected, err := i.resolvePlugins(ctx)
-	if err != nil {
-		return r, err
+	selected := append([]Plugin(nil), i.PinnedPlugins...)
+	if len(selected) == 0 {
+		selected, err = i.resolvePlugins(ctx)
+		if err != nil {
+			return r, err
+		}
 	}
-	expected, _ := json.Marshal(installReceipt{DSHVersion, PnpmVersion, selected, "latest", i.Settings.Registry})
+	policyName := "latest"
+	if len(i.PinnedPlugins) > 0 {
+		policyName = "compatible-pinned"
+	}
+	expected, _ := json.Marshal(installReceipt{version, PnpmVersion, selected, policyName, i.Settings.Registry})
 	registryArg := "--registry=" + i.Settings.Registry
 	if err = os.MkdirAll(toolsDir, 0700); err != nil {
 		return r, err
@@ -259,20 +288,27 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	if err = i.run(ctx, r, r.NPM, "install", "--prefix", toolsDir, "--save-exact", "--ignore-scripts", "--no-audit", "--no-fund", registryArg, "pnpm@"+PnpmVersion); err != nil {
 		return r, err
 	}
-	i.Log.Add("安装固定版本 DSH " + DSHVersion)
-	dshDir := filepath.Join(i.Paths.Runtime, "dsh")
+	i.Log.Add("安装 DSH " + version + " 到独立版本槽位")
 	if err = os.MkdirAll(dshDir, 0700); err != nil {
 		return r, err
 	}
-	policy := []byte(`{"private":true,"allowScripts":{"@deepseek-ai/dsh-subprocess-local@0.1.2-rc.1":true,"node-pty@1.2.0-beta.15":true,"koffi@3.2.1":true}}`)
+	policy := []byte(`{"private":true}`)
 	if err = AtomicWrite(filepath.Join(dshDir, "package.json"), policy, 0600); err != nil {
 		return r, err
 	}
-	if err = i.run(ctx, r, r.NPM, "install", "--prefix", dshDir, "--save-exact", "--ignore-scripts", "--no-audit", "--no-fund", registryArg, "@deepseek-ai/dsh@"+DSHVersion); err != nil {
+	if err = i.run(ctx, r, r.NPM, "install", "--prefix", dshDir, "--save-exact", "--ignore-scripts", "--no-audit", "--no-fund", registryArg, "@deepseek-ai/dsh@"+version); err != nil {
 		return r, err
 	}
-	if err = i.run(ctx, r, r.NPM, "rebuild", "--prefix", dshDir, "--ignore-scripts=false", "@deepseek-ai/dsh-subprocess-local@0.1.2-rc.1", "node-pty@1.2.0-beta.15", "koffi@3.2.1"); err != nil {
+	nativeSpecs, err := writeNativeBuildPolicy(dshDir)
+	if err != nil {
 		return r, err
+	}
+	rebuild := append([]string{r.NPM, "rebuild", "--prefix", dshDir, "--ignore-scripts=false"}, nativeSpecs...)
+	if err = i.run(ctx, r, rebuild...); err != nil {
+		return r, err
+	}
+	if err = i.run(ctx, r, r.CLI, "--version"); err != nil {
+		return r, fmt.Errorf("DSH %s 自检失败: %w", version, err)
 	}
 	// Let the official CLI initialize and reconcile its profile. No private
 	// cordis config format is invented by the desktop shell.
@@ -304,4 +340,59 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 		return r, err
 	}
 	return r, nil
+}
+
+func writeNativeBuildPolicy(dshDir string) ([]string, error) {
+	wanted := map[string]string{
+		"@deepseek-ai/dsh-subprocess-local": "",
+		"node-pty":                          "",
+		"koffi":                             "",
+	}
+	root := filepath.Join(dshDir, "node_modules")
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || entry.Name() != "package.json" {
+			return nil
+		}
+		var pkg struct {
+			Name    string `json:"name"`
+			Version string `json:"version"`
+		}
+		contents, readErr := os.ReadFile(path)
+		if readErr != nil || json.Unmarshal(contents, &pkg) != nil {
+			return nil
+		}
+		if _, ok := wanted[pkg.Name]; ok && wanted[pkg.Name] == "" && exactVersion.MatchString(pkg.Version) {
+			wanted[pkg.Name] = pkg.Version
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	allow := map[string]bool{}
+	specs := make([]string, 0, len(wanted))
+	for _, name := range []string{"@deepseek-ai/dsh-subprocess-local", "node-pty", "koffi"} {
+		version := wanted[name]
+		if version == "" {
+			return nil, fmt.Errorf("DSH 安装缺少受信任的原生依赖 %s", name)
+		}
+		spec := name + "@" + version
+		allow[spec] = true
+		specs = append(specs, spec)
+	}
+	var manifest map[string]any
+	contents, err := os.ReadFile(filepath.Join(dshDir, "package.json"))
+	if err != nil || json.Unmarshal(contents, &manifest) != nil {
+		return nil, errors.New("无法读取 DSH 运行时清单")
+	}
+	manifest["private"] = true
+	manifest["allowScripts"] = allow
+	contents, _ = json.MarshalIndent(manifest, "", "  ")
+	if err = AtomicWrite(filepath.Join(dshDir, "package.json"), contents, 0600); err != nil {
+		return nil, err
+	}
+	return specs, nil
 }

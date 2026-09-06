@@ -19,8 +19,11 @@ func main() {
 	root := flag.String("root", "", "isolated test directory (required)")
 	lan := flag.Bool("lan", false, "also verify opt-in LAN authentication")
 	workspaceRecovery := flag.Bool("workspace-recovery", false, "seed and verify the v0.2.12 workspace registry recovery")
+	managedUpdate := flag.Bool("managed-update", false, "exercise staged managed update and readiness transaction")
 	command := flag.String("command", core.DefaultCommand, "launch command to exercise (defaults to production pnpm command)")
 	flag.Parse()
+	commandProvided := false
+	flag.Visit(func(f *flag.Flag) { commandProvided = commandProvided || f.Name == "command" })
 	if *root == "" {
 		fmt.Fprintln(os.Stderr, "--root is required")
 		os.Exit(2)
@@ -39,6 +42,9 @@ func main() {
 	settings := core.Defaults()
 	settings.LAN = *lan
 	settings.Command = *command
+	if commandProvided {
+		settings.RuntimeMode = core.RuntimeModeCustom
+	}
 	m := core.NewManager(p, settings)
 	m.Start()
 	last := 0
@@ -84,6 +90,9 @@ func main() {
 					}
 				}
 				cancel()
+				if err == nil && *managedUpdate {
+					err = exerciseManagedUpdate(m, p)
+				}
 				for _, line := range m.Snapshot().Logs[last:] {
 					fmt.Println(line.Time, line.Text)
 				}
@@ -93,6 +102,9 @@ func main() {
 					os.Exit(1)
 				}
 				fmt.Println("PASS: six registered plugins and real native PTY")
+				if *managedUpdate {
+					fmt.Println("PASS: staged managed update, rollback round-trip and authenticated restart")
+				}
 				if *lan {
 					fmt.Println("PASS: LAN authority-bound authentication")
 				}
@@ -101,6 +113,47 @@ func main() {
 			}
 		}
 	}
+}
+
+func exerciseManagedUpdate(manager *core.Manager, paths core.Paths) error {
+	// The public registry has no guaranteed second compatible version. Change
+	// only the disposable receipt's version label so the production transaction
+	// reinstalls the current verified package into a new slot and exercises the
+	// same stop, backup, publish, switch and readiness path on every CI platform.
+	receiptPath := filepath.Join(paths.Runtime, "receipt.json")
+	contents, err := os.ReadFile(receiptPath)
+	if err != nil {
+		return err
+	}
+	var receipt map[string]any
+	if err = json.Unmarshal(contents, &receipt); err != nil {
+		return err
+	}
+	receipt["DSH"] = "0.1.1"
+	contents, _ = json.Marshal(receipt)
+	if err = os.WriteFile(receiptPath, contents, 0600); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	defer cancel()
+	info, err := manager.ApplyDSHUpdate(ctx)
+	if err != nil {
+		return err
+	}
+	if info.CurrentVersion != core.DSHVersion || !info.CanRollback || manager.Snapshot().Phase != "running" {
+		return fmt.Errorf("managed update did not publish a ready rollback-capable slot: %+v", info)
+	}
+	rolledBack, err := manager.RollbackDSH(ctx)
+	if err != nil || rolledBack.CurrentVersion != "0.1.1" || manager.Snapshot().Phase != "running" {
+		return fmt.Errorf("managed rollback did not restore the previous ready slot: %+v: %w", rolledBack, err)
+	}
+	rolledForward, err := manager.RollbackDSH(ctx)
+	if err != nil || rolledForward.CurrentVersion != core.DSHVersion || manager.Snapshot().Phase != "running" {
+		return fmt.Errorf("managed rollback round-trip did not restore the upgraded slot: %+v: %w", rolledForward, err)
+	}
+	verify, verifyCancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer verifyCancel()
+	return manager.VerifyInstallation(verify)
 }
 
 func seedCorruptWorkspace(paths core.Paths) ([]byte, error) {

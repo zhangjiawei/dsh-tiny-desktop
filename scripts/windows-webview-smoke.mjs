@@ -125,8 +125,16 @@ try {
   const defaults = await evaluate(`({command:document.querySelector('#command').value,registry:document.querySelector('#registry').value})`);
   assert.match(defaults.command,/^pnpm .* dlx @deepseek-ai\/dsh@.+ web$/);
   assert.equal(defaults.registry,'https://registry.npmmirror.com');
+  const managedUI = await evaluate(`({mode:document.querySelector('#runtime-mode').value,managed:!document.querySelector('#managed-runtime').hidden,custom:document.querySelector('#custom-runtime').hidden,current:document.querySelector('#dsh-current').textContent})`);
+  assert.deepEqual(managedUI,{mode:'managed',managed:true,custom:true,current:'0.1.2-rc.1'});
+  await evaluate(`document.querySelector('#runtime-mode').value='custom';document.querySelector('#runtime-mode').dispatchEvent(new Event('change'))`);
+  assert.deepEqual(await evaluate(`({managed:document.querySelector('#managed-runtime').hidden,custom:!document.querySelector('#custom-runtime').hidden})`),{managed:true,custom:true});
+  await evaluate(`document.querySelector('#runtime-mode').value='managed';document.querySelector('#runtime-mode').dispatchEvent(new Event('change'))`);
   await evaluate(`document.querySelector('#settings-form').requestSubmit()`);
   await until(async()=>JSON.parse(await readFile(settingsPath,'utf8')).registry===defaults.registry,'default mirror saved');
+  await evaluate(`document.querySelector('#check-dsh-update').click()`);
+  await until(()=>evaluate(`document.querySelector('#dsh-update-status')?.textContent==='The selected channel is current.'`),'managed update check through native bridge');
+  console.log('PASS: native managed/custom runtime modes and DSH update check');
   // Stress the actual asynchronous WebView2 message boundary. A request sent
   // immediately before another hash change must still reach the same document.
   for (let n=0;n<6;n++) {

@@ -13,21 +13,23 @@ import (
 )
 
 type Snapshot struct {
-	Phase           string    `json:"phase"`
-	Error           string    `json:"error"`
-	Port            int       `json:"port"`
-	Data            string    `json:"data"`
-	Logs            []LogLine `json:"logs"`
-	Settings        Settings  `json:"settings"`
-	SystemLanguage  string    `json:"systemLanguage"`
-	RestartRequired bool      `json:"restartRequired"`
-	LANActive       bool      `json:"lanActive"`
-	PortChanged     bool      `json:"portChanged"`
-	PreferredPort   int       `json:"preferredPort"`
-	Defaults        Settings  `json:"defaults"`
+	Phase           string        `json:"phase"`
+	Error           string        `json:"error"`
+	Port            int           `json:"port"`
+	Data            string        `json:"data"`
+	Logs            []LogLine     `json:"logs"`
+	Settings        Settings      `json:"settings"`
+	SystemLanguage  string        `json:"systemLanguage"`
+	RestartRequired bool          `json:"restartRequired"`
+	LANActive       bool          `json:"lanActive"`
+	PortChanged     bool          `json:"portChanged"`
+	PreferredPort   int           `json:"preferredPort"`
+	Defaults        Settings      `json:"defaults"`
+	DSHUpdate       DSHUpdateInfo `json:"dshUpdate"`
 }
 type Manager struct {
 	mu                       sync.Mutex
+	updateMu                 sync.Mutex
 	paths                    Paths
 	settings                 Settings
 	activeSettings           Settings // Immutable launch configuration for the current child.
@@ -38,9 +40,18 @@ type Manager struct {
 	cancel                   context.CancelFunc
 	done                     chan struct{}
 	systemLanguage           string
+	updateBusy               bool
+	updateStatus             string
+	updateTarget             string
+	updateChecked            string
+	updateCancel             context.CancelFunc
+	updateDone               chan struct{}
 }
 
 func NewManager(p Paths, s Settings) *Manager {
+	// Recover disk space from an interrupted update while retaining exactly the
+	// active slot, one rollback slot and its matching control-state snapshot.
+	cleanupUpdateArtifacts(p)
 	return &Manager{paths: p, settings: s, activeSettings: s, phase: "stopped", systemLanguage: SystemLanguage(), log: Log{path: filepath.Join(p.Logs, "runtime.log")}}
 }
 func (m *Manager) ReportError(err error) {
@@ -52,19 +63,22 @@ func (m *Manager) ReportError(err error) {
 }
 func (m *Manager) Snapshot() Snapshot {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	return Snapshot{Phase: m.phase, Error: m.lastError, Port: m.port, Data: m.paths.Data,
+	snapshot := Snapshot{Phase: m.phase, Error: m.lastError, Port: m.port, Data: m.paths.Data,
 		Logs: m.log.Lines(), Settings: m.settings, SystemLanguage: m.systemLanguage,
 		RestartRequired: m.cancel != nil && !sameLaunchSettings(m.settings, m.activeSettings),
 		LANActive:       m.phase == "running" && m.lanIP != "",
 		PortChanged:     m.phase == "running" && m.port != m.activeSettings.Port,
 		PreferredPort:   m.activeSettings.Port, Defaults: Defaults()}
+	m.mu.Unlock()
+	snapshot.DSHUpdate = m.localUpdateInfo()
+	return snapshot
 }
 
 // Appearance and next-app-launch preferences do not alter a running DSH child.
 // Compare only values consumed by the installer and supervisor at Start.
 func sameLaunchSettings(a, b Settings) bool {
 	return a.Port == b.Port && a.Proxy == b.Proxy && a.LAN == b.LAN &&
+		a.RuntimeMode == b.RuntimeMode && a.ExtraArgs == b.ExtraArgs &&
 		a.Command == b.Command && a.Registry == b.Registry && a.StartupMinutes == b.StartupMinutes
 }
 
@@ -87,12 +101,20 @@ func (m *Manager) ConfigureAppearance(s Settings) error {
 func (m *Manager) Configure(s Settings) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.updateBusy {
+		return errors.New("DSH 版本操作进行中，请等待完成；退出应用会安全取消")
+	}
+	current := m.settings
 	// Saving updates the desired configuration only. Existing conversations and
 	// the active LAN listener keep their launch configuration until a restart.
 	if err := m.paths.SaveSettings(s); err != nil {
 		return err
 	}
 	m.settings = s
+	if s.RuntimeMode != current.RuntimeMode || s.DSHChannel != current.DSHChannel || s.FixedDSHVersion != current.FixedDSHVersion || s.Registry != current.Registry || s.Proxy != current.Proxy {
+		m.updateTarget, m.updateChecked = "", ""
+		m.updateStatus = ""
+	}
 	return nil
 }
 
@@ -107,6 +129,16 @@ func (m *Manager) LaunchURL() (string, error) {
 	return m.launch, nil
 }
 func (m *Manager) Start() error {
+	m.mu.Lock()
+	if m.updateBusy {
+		m.mu.Unlock()
+		return errors.New("DSH 版本操作进行中，暂不能重复启动")
+	}
+	m.mu.Unlock()
+	return m.startService()
+}
+
+func (m *Manager) startService() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.cancel != nil {
@@ -126,6 +158,22 @@ func (m *Manager) Start() error {
 }
 func (m *Manager) Stop() {
 	m.mu.Lock()
+	if m.updateBusy && m.updateCancel != nil {
+		cancel, updateDone := m.updateCancel, m.updateDone
+		m.mu.Unlock()
+		cancel()
+		if updateDone != nil {
+			<-updateDone
+		}
+		m.stopService()
+		return
+	}
+	m.mu.Unlock()
+	m.stopService()
+}
+
+func (m *Manager) stopService() {
+	m.mu.Lock()
 	cancel, done := m.cancel, m.done
 	m.mu.Unlock()
 	if cancel != nil {
@@ -137,8 +185,14 @@ func (m *Manager) Stop() {
 // Restart is the single process-level restart path used by the settings UI and
 // by other lifecycle operations. It only touches the DSH tree owned by Tiny.
 func (m *Manager) Restart() error {
-	m.Stop()
-	return m.Start()
+	m.mu.Lock()
+	if m.updateBusy {
+		m.mu.Unlock()
+		return errors.New("DSH 版本操作进行中，暂不能重复重启")
+	}
+	m.mu.Unlock()
+	m.stopService()
+	return m.startService()
 }
 func (m *Manager) run(ctx context.Context, s Settings, done chan struct{}) {
 	var failure error
@@ -156,7 +210,7 @@ func (m *Manager) run(ctx context.Context, s Settings, done chan struct{}) {
 		close(done)
 		m.mu.Unlock()
 	}()
-	installer := Installer{m.paths, s, &m.log}
+	installer := Installer{Paths: m.paths, Settings: s, Log: &m.log}
 	r, err := installer.Ensure(ctx)
 	if err != nil {
 		failure = err

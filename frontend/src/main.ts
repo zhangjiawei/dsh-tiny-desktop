@@ -14,6 +14,10 @@ type Settings = {
   autoStart: boolean;
   alwaysOnTop: boolean;
   language: string;
+  runtimeMode: "managed" | "custom";
+  dshChannel: "recommended" | "stable" | "preview" | "fixed";
+  fixedDshVersion: string;
+  extraArgs: string;
   command: string;
   registry: string;
   startupMinutes: number;
@@ -33,6 +37,18 @@ type State = {
   portChanged: boolean;
   preferredPort: number;
   defaults: Settings;
+  dshUpdate: {
+    mode: string;
+    channel: string;
+    currentVersion: string;
+    targetVersion: string;
+    previousVersion: string;
+    available: boolean;
+    canRollback: boolean;
+    busy: boolean;
+    status: string;
+    lastChecked: string;
+  };
 };
 type ImportPreview = {
   source: string;
@@ -70,7 +86,7 @@ function call(action: string, data: unknown = {}): Promise<any> {
     const timer = setTimeout(() => {
       if (pending.delete(id))
         reject(new Error(t(action === "status" ? "设置连接失败，正在重试。请退出并重新打开应用，仍失败请更新版本。" : "操作仍在处理中，请查看日志")));
-    }, action === "status" ? 8000 : ["import", "restore"].includes(action) ? 600000 : 120000);
+    }, action === "status" ? 8000 : ["import", "restore", "applyDSHUpdate", "rollbackDSH"].includes(action) ? 1200000 : 120000);
     pending.set(id, { resolve, reject, timer });
     try {
       System.invoke(JSON.stringify({ id, action, data }));
@@ -128,12 +144,17 @@ function render(s: State) {
     .map((l) => `${l.time}  ${l.text}`)
     .join("\n");
   const active = ["installing", "starting", "running"].includes(s.phase);
-  ($("start") as HTMLButtonElement).disabled = active;
+  const versionBusy = s.dshUpdate.busy;
+  ($("start") as HTMLButtonElement).disabled = active || versionBusy;
   $("start").hidden = active;
-  ($("restart-service") as HTMLButtonElement).disabled = !active;
+  ($("restart-service") as HTMLButtonElement).disabled = !active || versionBusy;
   $("restart-service").hidden = !active;
   $("open").classList.toggle("primary", s.phase === "running");
-  ($("stop") as HTMLButtonElement).disabled = !active;
+  ($("stop") as HTMLButtonElement).disabled = !active || versionBusy;
+  for (const id of ["save-settings", "apply-restart", "choose", "import", "restore"]) {
+    const button = document.getElementById(id) as HTMLButtonElement | null;
+    if (button) button.disabled = versionBusy;
+  }
   for (const id of ["open", "browser", "copy", "share"])
     $<HTMLButtonElement>(id).disabled = s.phase !== "running";
   if (first) {
@@ -146,12 +167,33 @@ function render(s: State) {
     $<HTMLInputElement>("lan").checked = s.settings.lan;
     $<HTMLInputElement>("tray-only").checked = s.settings.trayOnly;
     $<HTMLSelectElement>("language").value = s.settings.language;
+    $<HTMLSelectElement>("runtime-mode").value = s.settings.runtimeMode;
+    $<HTMLSelectElement>("dsh-channel").value = s.settings.dshChannel;
+    $<HTMLInputElement>("fixed-dsh-version").value = s.settings.fixedDshVersion;
+    $<HTMLTextAreaElement>("extra-args").value = s.settings.extraArgs;
     $<HTMLInputElement>("command").value = s.settings.command;
     $<HTMLInputElement>("registry").value = s.settings.registry;
     $<HTMLInputElement>("startup-minutes").value = String(
       s.settings.startupMinutes,
     );
   }
+  renderRuntime(s);
+}
+
+function renderRuntime(s: State) {
+  const managed = $<HTMLSelectElement>("runtime-mode").value === "managed";
+  $("managed-runtime").hidden = !managed;
+  $("custom-runtime").hidden = managed;
+  $("runtime-mode-badge").textContent = t(managed ? "Tiny 托管" : "自定义命令");
+  $("runtime-mode-badge").classList.toggle("custom", !managed);
+  $("fixed-version-field").hidden = $<HTMLSelectElement>("dsh-channel").value !== "fixed";
+  $("dsh-current").textContent = s.dshUpdate.currentVersion || "—";
+  $("dsh-target").textContent = s.dshUpdate.targetVersion || t("待检查");
+  $("dsh-previous").textContent = s.dshUpdate.previousVersion || t("无");
+  $("dsh-update-status").textContent = t(s.dshUpdate.status || "选择通道后检查版本，不影响正在运行的服务。");
+  $<HTMLButtonElement>("check-dsh-update").disabled = !managed || s.dshUpdate.busy;
+  $<HTMLButtonElement>("apply-dsh-update").disabled = !managed || !s.dshUpdate.available || s.dshUpdate.busy;
+  $<HTMLButtonElement>("rollback-dsh").disabled = !managed || !s.dshUpdate.canRollback || s.dshUpdate.busy;
 }
 function route() {
   const id = location.hash.slice(1) || "overview";
@@ -227,6 +269,10 @@ function settingsValues(): Settings {
     lan: $<HTMLInputElement>("lan").checked,
     trayOnly: $<HTMLInputElement>("tray-only").checked,
     language: $<HTMLSelectElement>("language").value,
+    runtimeMode: $<HTMLSelectElement>("runtime-mode").value as Settings["runtimeMode"],
+    dshChannel: $<HTMLSelectElement>("dsh-channel").value as Settings["dshChannel"],
+    fixedDshVersion: $<HTMLInputElement>("fixed-dsh-version").value.trim(),
+    extraArgs: $<HTMLTextAreaElement>("extra-args").value.trim(),
     command: $<HTMLInputElement>("command").value.trim(),
     registry: $<HTMLInputElement>("registry").value.trim().replace(/\/$/, ""),
     startupMinutes: Number($<HTMLInputElement>("startup-minutes").value),
@@ -251,6 +297,36 @@ action("apply-restart", async () => {
 $("command-example").onclick = () => {
   if (state) $<HTMLInputElement>("command").value = state.defaults.command;
 };
+$<HTMLSelectElement>("runtime-mode").onchange = () => {
+  if (!state) return;
+  renderRuntime(state);
+};
+$<HTMLSelectElement>("dsh-channel").onchange = () => {
+  $("fixed-version-field").hidden = $<HTMLSelectElement>("dsh-channel").value !== "fixed";
+};
+action("check-dsh-update", async () => {
+  if (!state) return;
+  const saved: State = await call("configure", settingsValues());
+  render(saved);
+  const info = await call("checkDSHUpdate");
+  state!.dshUpdate = info;
+  renderRuntime(state!);
+});
+action("apply-dsh-update", async () => {
+  if (!state) return;
+  render(await call("configure", settingsValues()));
+  notice("正在升级 DSH；失败会自动恢复旧版本…");
+  const info = await call("applyDSHUpdate");
+  state!.dshUpdate = info;
+  render(await call("status"));
+  notice("DSH 升级完成");
+});
+action("rollback-dsh", async () => {
+  notice("正在回退 DSH；当前数据会先建立恢复点…");
+  await call("rollbackDSH");
+  render(await call("status"));
+  notice("DSH 已回退到上一版本");
+});
 $("registry-default").onclick = () => {
   if (state) $<HTMLInputElement>("registry").value = state.defaults.registry;
 };
