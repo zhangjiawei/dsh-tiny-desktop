@@ -1,5 +1,14 @@
 # 验证记录
 
+## v0.2.13 workspace 注册一致性恢复
+
+- Windows 故障日志中的 ID `853f3223-152c-42a4-a25c-9d2ad97f2814` 已作为回归夹具：旧合并结果稳定触发 `workspace domain is inconsistent: workspace ... is absent from registry order`，证明失败发生在 storage 语义合并，不是全局 DSH、Node、局域网绑定或自动重启时序。
+- 已对照当前随包 `@deepseek-ai/dsh-workspace` 的官方 v2 domain：`global.workspaceIds` 是权威展示顺序；`initialized=true` 时必须与 `tables.workspaces` 一一对应，且 path 与 session 只能属于一个 workspace。
+- 合并回归覆盖：不同 workspace 记录和顺序一起加入、同 ID 保留 Tiny、相同 path 保留 Tiny 字段并追加来源独有 session、来源 archived session 补充，以及合并结果再次通过官方等价约束校验。
+- 兼容恢复回归覆盖：v0.2.12 孤立 ID 补入顺序；相同 path 的孤立记录合并且不覆盖 Tiny 的标题/时间；修复前文件逐字节备份；已经一致的文件保持逐字节不变。
+- 本机全新隔离 Profile 使用同一个 Windows 故障 ID 写入不一致 workspace 后，v0.2.13 在 DSH 启动前记录“已恢复 1 个导入工作空间的注册关系”；随后真实 DSH 在 62921 完成 token 认证，六插件（当次 latest：codex-ui 0.2.104、im-connect 0.1.34、automation 0.1.31、dshmarket 1.44.0、task-complete-notify 0.2.0、better-sidebar 0.18.0）和三处原生 PTY 均通过，受管进程正常停止。
+- 本地 `go test ./...`、核心 race、全量 vet、`go mod tidy -diff`、前端测试/构建和 Windows amd64/arm64 交叉编译通过。真实恢复隔离目录约 1.3 GiB 已完整删除，测试端口 62921 已释放且没有遗留相关进程。
+
 ## v0.2.12 插件更新重启与按记录数据合并
 
 - 已确认 `@michengai/dsh-codex-ui` 在普通 Web/CLI 进程中检测到 `process.send` 不存在，因此返回 `autoReload: false`；官方 Desktop 才通过 `apply-plugin-updates` Node IPC 热更新。Tiny 不是 Node `fork` 宿主，原 Web 重连与 Tiny 的 Stop→Start 不等价。

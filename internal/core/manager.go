@@ -162,6 +162,17 @@ func (m *Manager) run(ctx context.Context, s Settings, done chan struct{}) {
 		failure = err
 		return
 	}
+	// v0.2.12 could import workspace table rows without updating the matching
+	// global registry order. Repair only that known, deterministic inconsistency
+	// before DSH loads the profile; valid profiles are not rewritten.
+	repaired, err := repairWorkspaceRegistryFile(filepath.Join(m.paths.Data, "storages", "workspace.json"))
+	if err != nil {
+		failure = fmt.Errorf("检查 workspace 存储一致性失败: %w", err)
+		return
+	}
+	if repaired > 0 {
+		m.log.Add(fmt.Sprintf("已恢复 %d 个导入工作空间的注册关系；修复前文件已保留为 workspace.json.tiny-v0.2.12-recovery", repaired))
+	}
 	for {
 		profileRestart := false
 		for attempt := 0; attempt < 3; attempt++ {

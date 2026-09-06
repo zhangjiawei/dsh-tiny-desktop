@@ -68,6 +68,11 @@ func importFiles(source string, credentials bool, visit func(string, fs.FileInfo
 		if relErr != nil {
 			return relErr
 		}
+		// A compatibility repair keeps this byte-exact local safety copy beside
+		// workspace.json. It is recovery metadata, not data to import again.
+		if strings.HasSuffix(filepath.ToSlash(rel), ".tiny-v0.2.12-recovery") {
+			return nil
+		}
 		top := strings.Split(rel, string(filepath.Separator))[0]
 		if !importRoots[top] && !(credentials && top == ".credentials.yaml") {
 			if info != nil && info.IsDir() {

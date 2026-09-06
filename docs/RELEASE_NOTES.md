@@ -1,3 +1,14 @@
+v0.2.13 公开预览版：修复 v0.2.12 数据合并后 workspace 注册顺序与记录表不一致，导致 Windows 上 DSH 无法启动的问题。
+
+- `workspace` storage 不再使用通用“只合并表记录”规则；现在同时合并官方 `global.workspaceIds` 权威顺序，并在写入前验证顺序、路径和会话归属三项约束。
+- 相同 ID 或相同规范路径继续由 Tiny 版本优先，只追加尚未归属的来源会话；不同工作空间按来源顺序追加。不会用导入值覆盖 Tiny 的标题、路径或时间字段。
+- 首次用 v0.2.13 启动时，会在 DSH 读取 Profile 前兼容修复 v0.2.12 已留下的孤立 workspace 记录：不同路径补入顺序，相同路径合并到 Tiny 记录。修复前原文件逐字节保留为 `workspace.json.tiny-v0.2.12-recovery`。
+- 一致的现有 Profile 不重写；未初始化状态和 DSH 自己的 pending mutation 仍交由 DSH 官方恢复流程处理。修复副本不会被后续数据导入重复复制。
+
+受影响的 v0.2.12 用户无需删除 `%AppData%\dsh-tiny-desktop`、无需重新导入，也不要删除 `backup-*`。真正退出旧版后运行 v0.2.13，设置日志应先出现“已恢复 … 个导入工作空间的注册关系”，随后正常认证就绪。macOS 仍为 ad-hoc 签名、Windows 未商业签名。
+
+## v0.2.12
+
 v0.2.12 公开预览版：让 Web 插件更新得到真正的 DSH 进程重启，并补全项目、设置与凭据的 Tiny 优先合并。
 
 - Web/CLI 模式没有官方 Desktop 的 Node IPC；Web 页重连此前不等于 Tiny 的进程重启。Tiny 现在监听自己的独立 Profile，只有插件 pending 标记消失且 `package.json` 稳定后才重启受管 DSH 进程树；更新失败或尚未结束时不会中断服务，也不修改第三方插件源码。

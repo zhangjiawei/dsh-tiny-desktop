@@ -49,6 +49,8 @@ jobs:
         run: go test -race ./internal/core
       - name: Real isolated DSH startup and shutdown
         run: go run ./cmd/smoke --root "${{ runner.temp }}/dsh-tiny-smoke"
+      - name: Recover v0.2.12 workspace registry before DSH boot
+        run: go run ./cmd/smoke --root "${{ runner.temp }}/dsh-tiny-smoke" --workspace-recovery
       - name: Recover interrupted installation without losing data
         run: node scripts/install-recovery-smoke.mjs "${{ runner.temp }}/dsh-tiny-smoke"
       - name: Real LAN authentication
