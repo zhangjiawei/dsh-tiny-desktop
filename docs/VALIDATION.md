@@ -8,6 +8,9 @@
 - `TestWorkspaceStorageMergeAddsProjectsAndKeepsTinyRecords` 验证官方 `{unit,global,tables}` 单文件格式按表记录键合并，Tiny 的同名记录和 global 不被来源覆盖。`storages` 已加入导入白名单；逐记录目录保持文件级补充，Windows junction 等不安全 reparse point 继续跳过。
 - 数据页请求改为 `ImportWithRestart` / `RestoreBackupWithRestart`：仅当 Tiny 原先活跃时自动停服，操作无论成功或失败都尝试恢复服务；前端超时放宽到 10 分钟，并明确显示自动停止/恢复语义。
 - 本地 `go test -count=1 ./...`、核心 race、`go vet ./...`、`go mod tidy -diff`、前端 6 项测试及 TypeScript 构建通过；核心测试包另交叉编译为 Windows x86-64/AArch64 PE。本机 macOS x86-64 打包成功，版本元数据为 `0.2.12`，`codesign --verify --deep --strict` 通过（仍仅为 ad-hoc 完整性）。交叉编译和打包产物随即删除。全部数据测试使用临时目录；未读取真实凭据值，未改动用户 `~/.dsh` 或 Tiny 正式数据目录。
+- `main` 工作流 [34022678009](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34022678009) 六个平台全部成功。Windows x64 job [101458011476](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34022678009/job/101458011476) 与 Windows ARM64 job [101458011497](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34022678009/job/101458011497) 均通过真实私有 DSH/六插件/PTY、安装恢复、正式 GUI 与 WebView2 一键重启门禁。
+- 标签 `v0.2.12` 指向功能提交 `7b0123f`；[标签工作流 34023373412](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34023373412) 在同一源码上再次 6/6 成功，Windows x64 job [101459933684](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34023373412/job/101459933684) 与 Windows ARM64 job [101459933699](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34023373412/job/101459933699) 通过，release job [101461915371](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34023373412/job/101461915371) 成功创建公开预览版。
+- [v0.2.12 Release](https://github.com/zhangjiawei/dsh-tiny-desktop/releases/tag/v0.2.12) 的六个平台归档与 `SHA256SUMS.txt` 已从公开直链重新下载，六项 SHA-256 全部匹配。解压后确认 Windows GUI PE x86-64/AArch64、Linux ELF x86-64/AArch64、macOS Mach-O x86_64/arm64 与资产名称一致；两个 Mac App 的版本均为 `0.2.12` 且通过 ad-hoc `codesign` 完整性检查。公开资产下载、解压、交叉编译和本地打包临时目录均已删除；工程 `work/` 与 `dist/` 为空。
 
 ## v0.2.11 Profile、Windows 导入与一键重启
 
