@@ -7,8 +7,10 @@
 - 本地实际 DSH 0.1.2-rc.1 的 `web --help` 确认 `--trusted-host <authority...>` 支持可重复的 host / host:port。前端 9 项测试、TypeScript 构建、Go 全量测试、核心 race、全量 vet、模块 diff 均通过。
 - Windows x64/ARM64 的核心测试二进制交叉编译通过；两架构桌面二进制均确认为 PE32+ GUI 子系统。macOS x86-64 v0.3.1 包为 Mach-O x86_64，Info.plist 版本 0.3.1，ad-hoc `codesign --verify --deep --strict` 与 ZIP 完整性检查通过。
 - 设置页在 1000×800 与 820×680 浏览器视口检查局域网绑定、公网地址、可信主机、双层访问链和底部操作区；没有横向溢出，沿用现有绿白配色、间距和焦点规则。该隔离静态预览只用于布局，不替代原生 Wails/DSH 验证。
-- 交叉编译目录、macOS 打包产物和临时预览服务均已清理；工程 `dist` / `bin` 为空。Cloudflare 已新建无路由的 `zgpctun`，在 Windows Connector 在线及 v0.3.1 就绪前没有迁移现有公开主机，因此现网和 Mac Tunnel 保持不变。
+- 交叉编译目录、macOS 打包产物和临时预览服务均已清理；工程 `dist` / `bin` 为空。发布验证期间 Cloudflare 只新建了无路由的 `zgpctun`；在 Windows Connector 在线及 v0.3.1 就绪前没有迁移现有公开主机，因此该阶段现网和 Mac Tunnel 保持不变。
 - main 工作流 [`34072313957`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34072313957) 的六个平台 build 全部成功。Windows x64 job [`101591800708`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34072313957/job/101591800708) 与 Windows ARM64 job [`101591800717`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34072313957/job/101591800717) 均通过最终代码的真实独立安装、恢复、DSH/六插件/PTY、正式 GUI 打包和原生 WebView2 控制桥。
+- 正式标签工作流 [`34073603248`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34073603248) 的六个平台 build 与 release job [`101597872176`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34073603248/job/101597872176) 全部成功，创建公开预览版 [`v0.3.1`](https://github.com/zhangjiawei/dsh-tiny-desktop/releases/tag/v0.3.1)。Windows x64 job [`101595404414`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34073603248/job/101595404414) 与 Windows ARM64 job [`101595404275`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34073603248/job/101595404275) 再次通过最终发布源码的真实 DSH、六插件、PTY 和原生桌面门禁。
+- 发布后从公开 Release 重新下载六个平台归档及 `SHA256SUMS.txt`，六项 SHA-256 全部匹配。解包确认 Windows GUI PE x86-64/AArch64、macOS Mach-O x86_64/arm64、Linux ELF x86-64/AArch64 与资产命名一致；两个 Mac App 的版本均为 0.3.1，并通过 `codesign --verify --deep --strict`。约 98 MiB 下载/解压目录、抓取页面和工程构建输出在验证后删除；`dist` / `bin` 保持为空。
 
 ## v0.3.0 DSH 托管升级与一代回退
 
