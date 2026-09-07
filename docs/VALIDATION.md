@@ -8,6 +8,7 @@
 - Windows x64/ARM64 的核心测试二进制交叉编译通过；两架构桌面二进制均确认为 PE32+ GUI 子系统。macOS x86-64 v0.3.1 包为 Mach-O x86_64，Info.plist 版本 0.3.1，ad-hoc `codesign --verify --deep --strict` 与 ZIP 完整性检查通过。
 - 设置页在 1000×800 与 820×680 浏览器视口检查局域网绑定、公网地址、可信主机、双层访问链和底部操作区；没有横向溢出，沿用现有绿白配色、间距和焦点规则。该隔离静态预览只用于布局，不替代原生 Wails/DSH 验证。
 - 交叉编译目录、macOS 打包产物和临时预览服务均已清理；工程 `dist` / `bin` 为空。Cloudflare 已新建无路由的 `zgpctun`，在 Windows Connector 在线及 v0.3.1 就绪前没有迁移现有公开主机，因此现网和 Mac Tunnel 保持不变。
+- main 工作流 [`34072313957`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34072313957) 的六个平台 build 全部成功。Windows x64 job [`101591800708`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34072313957/job/101591800708) 与 Windows ARM64 job [`101591800717`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34072313957/job/101591800717) 均通过最终代码的真实独立安装、恢复、DSH/六插件/PTY、正式 GUI 打包和原生 WebView2 控制桥。
 
 ## v0.3.0 DSH 托管升级与一代回退
 
