@@ -17,11 +17,12 @@ func TestLegacyCommandsMigrateToOneVersionOwner(t *testing.T) {
 		command string
 		mode    string
 		extra   string
+		lan     string
 	}{
-		{"", RuntimeModeManaged, ""},
-		{ManagedCommand, RuntimeModeManaged, ""},
-		{DefaultCommand + " --trusted-host 172.16.8.136", RuntimeModeManaged, "--trusted-host 172.16.8.136"},
-		{"pnpm dlx @deepseek-ai/dsh@9.9.9 web", RuntimeModeCustom, ""},
+		{"", RuntimeModeManaged, "", ""},
+		{ManagedCommand, RuntimeModeManaged, "", ""},
+		{DefaultCommand + " --trusted-host 172.16.8.136", RuntimeModeManaged, "", "172.16.8.136"},
+		{"pnpm dlx @deepseek-ai/dsh@9.9.9 web", RuntimeModeCustom, "", ""},
 	} {
 		paths, _ := NewPaths(t.TempDir())
 		contents, _ := json.Marshal(map[string]any{"command": test.command, "registry": DefaultRegistry})
@@ -29,7 +30,7 @@ func TestLegacyCommandsMigrateToOneVersionOwner(t *testing.T) {
 			t.Fatal(err)
 		}
 		got, err := paths.LoadSettings()
-		if err != nil || got.RuntimeMode != test.mode || got.ExtraArgs != test.extra || got.Command != mapEmptyCommand(test.command) {
+		if err != nil || got.RuntimeMode != test.mode || got.ExtraArgs != test.extra || got.LANAddress != test.lan || got.Command != mapEmptyCommand(test.command) {
 			t.Fatalf("command %q: %+v, %v", test.command, got, err)
 		}
 	}

@@ -21,7 +21,7 @@ const en: Record<string, string> = {
   "固定 DSH 版本": "Pinned DSH version",
   "必须填写完整版本号，不接受 latest 等浮动标签。": "Enter an exact version; floating tags such as latest are not accepted.",
   附加启动参数: "Additional launch arguments",
-  "Tiny 固定管理 web、--no-open、端口、监听地址和认证；仅可追加安全参数。局域网 IP 留空时自动选择默认路由网卡。": "Tiny owns web, --no-open, the port, listener and authentication. Only safe arguments may be appended. Leave the LAN IP empty to use the default-route adapter.",
+  "Tiny 固定管理 web、--no-open、端口、监听地址和认证；仅可追加安全参数。网络主机请在下方独立配置，避免启动参数互相冲突。": "Tiny owns web, --no-open, the port, listener and authentication. Configure network hosts separately below to avoid conflicting launch arguments.",
   "选择通道后检查版本，不影响正在运行的服务。": "Check the selected channel without interrupting the running service.",
   "当前已是所选通道版本": "The selected channel is current.",
   "检查 DSH 更新": "Check DSH update",
@@ -91,6 +91,23 @@ const en: Record<string, string> = {
   局域网分享: "LAN sharing",
   "仅限可信私有网络。链接具有完整权限，HTTP 未加密。":
     "Trusted private networks only. Links grant full access; HTTP is unencrypted.",
+  "局域网绑定 IPv4": "LAN bind IPv4",
+  "只接受私有 IPv4，例如 172.16.8.136；不会从受信任主机推断。":
+    "Private IPv4 only, such as 172.16.8.136. It is never inferred from trusted hosts.",
+  公网访问地址: "Public access URL",
+  "只接受 HTTPS 域名和可选端口，不支持路径；保存后会自动加入受信任主机。":
+    "HTTPS origin and optional port only; paths are not supported. Saving automatically trusts its host.",
+  额外受信任的反向代理主机: "Additional trusted reverse-proxy hosts",
+  "每行一个精确域名、IPv4、[IPv6]，可带端口；禁止协议、路径、通配符和用户信息，最多 16 个。":
+    "One exact DNS name, IPv4 or [IPv6] per line, with an optional port. Schemes, paths, wildcards and userinfo are forbidden; maximum 16.",
+  "HTTPS 公网": "Public HTTPS",
+  自定义域名: "Custom domain",
+  "Access / Tunnel": "Access / Tunnel",
+  反向代理到本机端口: "Reverse proxy to local port",
+  "DSH token": "DSH token",
+  首次认证后写入浏览器: "Stored in the browser after first authentication",
+  "同一 Windows Tunnel 可承载多个服务：每个服务使用独立子域名，并映射到不同的本地端口。DSH 当前映射到 127.0.0.1:3080。":
+    "One Windows Tunnel can carry multiple services: use a separate subdomain for each service and map each to a different local port. DSH currently maps to 127.0.0.1:3080.",
   "已有工作空间的插件不会随重启自动升级。":
     "Existing workspace plugins never update silently on restart.",
   "从原 DSH 补充数据，Tiny 已有内容始终优先。":
@@ -122,6 +139,8 @@ const en: Record<string, string> = {
   "↗ 在浏览器中打开": "↗ Open in browser",
   "⧉ 复制认证链接": "⧉ Copy authenticated link",
   "▦ 分享二维码": "▦ Share QR code",
+  "⧉ 复制公网认证连接": "⧉ Copy public authenticated link",
+  "▦ 公网二维码": "▦ Public QR code",
   "↓ 检查更新": "↓ Check for updates",
   开箱即用: "Ready to use",
   "6 个默认插件": "6 default plugins",
@@ -187,13 +206,17 @@ const en: Record<string, string> = {
     "The latest 500 log lines. Authenticated links and common secret fields are redacted.",
   "同一台电脑，换个浏览器。": "Same computer. Another browser.",
   "在可信局域网内继续。": "Continue on a trusted private network.",
+  "通过公网安全访问。": "Secure access over the internet.",
   "此链接包含完整访问凭证，请勿公开。当前为仅本机地址，手机无法访问。":
     "This link grants full access. Do not publish it. The local-only address cannot be opened on a phone.",
   "此链接包含完整访问权限。仅限可信私有网络；HTTP 未加密，请勿公开或转发给不可信的人。":
     "This link grants full access. Trusted private networks only; HTTP is unencrypted. Never publish or share with untrusted people.",
+  "此链接同时经过 Cloudflare Access 与 DSH 认证，并包含完整访问凭证，请勿公开转发。":
+    "This link is protected by both Cloudflare Access and DSH authentication and contains full-access credentials. Do not forward it publicly.",
   "扫码后，在打开的页面点击“进入工作空间”完成认证。":
     "After scanning, tap Continue in the opened page to complete authentication.",
   复制认证链接: "Copy authenticated link",
+  复制公网认证连接: "Copy public authenticated link",
   关闭: "Close",
   已停止: "Stopped",
   准备运行环境: "Preparing runtime",
@@ -208,6 +231,8 @@ const en: Record<string, string> = {
     "The operation is still running. Check the logs.",
   "认证链接已复制，请勿公开分享":
     "Authenticated link copied. Do not share publicly.",
+  "公网认证连接已复制，请勿公开分享":
+    "Public authenticated link copied. Do not share publicly.",
   "已打开本项目的 GitHub Releases": "Opened this project's GitHub Releases.",
   设置已保存: "Settings saved.",
   "保存不会中断服务，启动参数在下次启动时生效。": "Saving keeps your service running. Launch changes take effect on the next start.",
@@ -261,4 +286,10 @@ export function setLanguage(choice: string, system: string) {
   document
     .getElementById("command")
     ?.setAttribute("placeholder", t("启动程序及参数"));
+  document
+    .getElementById("extra-args")
+    ?.setAttribute("placeholder", language === "zh" ? "例如：--verbose" : "Example: --verbose");
+  document
+    .getElementById("lan-address")
+    ?.setAttribute("placeholder", language === "zh" ? "留空时自动选择" : "Leave empty for automatic selection");
 }

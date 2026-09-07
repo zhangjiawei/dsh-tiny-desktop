@@ -633,6 +633,46 @@ textarea::placeholder {
   font-size: 12px;
   margin: 18px 0;
 }
+.network-grid {
+  padding-top: 18px;
+}
+.access-route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1.25fr) 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 14px;
+  margin: 18px 0 8px;
+  border: 1px solid #cfe4d6;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f7fcf9, var(--green-soft));
+}
+.access-route span {
+  min-width: 0;
+}
+.access-route strong,
+.access-route small {
+  display: block;
+}
+.access-route strong {
+  color: #245d38;
+  font-size: 12px;
+}
+.access-route small {
+  margin-top: 2px;
+  font-size: 10px;
+}
+.access-route i {
+  color: var(--green);
+  font-style: normal;
+  text-align: center;
+}
+.network-note {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
 .check {
   display: flex;
   align-items: center;
@@ -862,6 +902,14 @@ textarea:focus-visible {
   }
   #notice {
     left: calc(50% + 65px);
+  }
+}
+@media (max-width: 760px) {
+  .access-route {
+    grid-template-columns: 1fr;
+  }
+  .access-route i {
+    transform: rotate(90deg);
   }
 }
 @media (prefers-reduced-motion: reduce) {

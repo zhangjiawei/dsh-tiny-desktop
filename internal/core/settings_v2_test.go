@@ -25,15 +25,19 @@ func TestCommandArgumentsAndManagedBoundary(t *testing.T) {
 		t.Fatalf("Windows quoting: %v %v", got, err)
 	}
 	got, err = ParseCommand(`dsh web --trusted-host 172.16.8.136`)
-	if err != nil || trustedHost(got) != "172.16.8.136" {
+	if err != nil || !reflect.DeepEqual(got, []string{"dsh", "web", "--trusted-host", "172.16.8.136"}) {
 		t.Fatalf("private trusted host rejected: %v %v", got, err)
+	}
+	got, err = ParseCommand(`dsh web --trusted-host zgpc.zjwcf.us.ci --trusted-host=[fd00::1]:8443`)
+	if err != nil || len(got) != 5 {
+		t.Fatalf("exact reverse-proxy authorities rejected: %v %v", got, err)
 	}
 	for _, s := range []string{`pnpm dlx dsh web --port=80`, `dsh web --host 0.0.0.0`, `dsh web --no-auth`, `echo hi; dsh web`, `$(whoami)`, `dsh "broken`} {
 		if _, e := ParseCommand(s); e == nil {
 			t.Errorf("accepted unsafe/invalid command: %s", s)
 		}
 	}
-	for _, s := range []string{`dsh web --trusted-host`, `dsh web --trusted-host example.com`, `dsh web --trusted-host=8.8.8.8`} {
+	for _, s := range []string{`dsh web --trusted-host`, `dsh web --trusted-host https://example.com`, `dsh web --trusted-host=*.example.com`} {
 		if _, e := ParseCommand(s); e == nil {
 			t.Errorf("accepted invalid trusted host: %s", s)
 		}

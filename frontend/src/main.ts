@@ -9,6 +9,9 @@ type Settings = {
   port: number;
   proxy: string;
   lan: boolean;
+  lanAddress: string;
+  trustedHosts: string;
+  publicURL: string;
   hideOnClose: boolean;
   trayOnly: boolean;
   autoStart: boolean;
@@ -73,6 +76,7 @@ let state: State | undefined;
 let importedBackup = "";
 let source = "";
 let first = true;
+let dialogCopyAction = "copyShare";
 (window as any).tinyReply = (id: number, value: any, error: string) => {
   const p = pending.get(id);
   if (!p) return;
@@ -155,8 +159,11 @@ function render(s: State) {
     const button = document.getElementById(id) as HTMLButtonElement | null;
     if (button) button.disabled = versionBusy;
   }
-  for (const id of ["open", "browser", "copy", "share"])
+  for (const id of ["open", "browser", "copy", "share", "copy-public", "share-public"])
     $<HTMLButtonElement>(id).disabled = s.phase !== "running";
+  const publicConfigured = Boolean(s.settings.publicURL);
+  $("copy-public").hidden = !publicConfigured;
+  $("share-public").hidden = !publicConfigured;
   if (first) {
     first = false;
     $<HTMLInputElement>("port-input").value = String(s.settings.port);
@@ -165,6 +172,9 @@ function render(s: State) {
     $<HTMLInputElement>("hide").checked = s.settings.hideOnClose;
     $<HTMLInputElement>("ontop").checked = s.settings.alwaysOnTop;
     $<HTMLInputElement>("lan").checked = s.settings.lan;
+    $<HTMLInputElement>("lan-address").value = s.settings.lanAddress;
+    $<HTMLTextAreaElement>("trusted-hosts").value = s.settings.trustedHosts;
+    $<HTMLInputElement>("public-url").value = s.settings.publicURL;
     $<HTMLInputElement>("tray-only").checked = s.settings.trayOnly;
     $<HTMLSelectElement>("language").value = s.settings.language;
     $<HTMLSelectElement>("runtime-mode").value = s.settings.runtimeMode;
@@ -226,32 +236,45 @@ action("copy", async () => {
   await call("copy");
   notice("认证链接已复制，请勿公开分享");
 });
-action("dialog-copy", () => call("copyShare"));
+action("dialog-copy", () => call(dialogCopyAction));
 action("updates", async () => {
   await call("updates");
   notice("已打开本项目的 GitHub Releases");
 });
-action("share", async () => {
-  const url = await call("share");
+async function showShare(url: string, kind: "local" | "public") {
   // A saved LAN toggle may still be pending restart. Describe the actual URL,
   // never the desired configuration, so offline sharing is not mislabeled.
   const lan = !["127.0.0.1", "localhost"].includes(new URL(url).hostname);
   $("share-title").textContent = t(
-    lan ? "在可信局域网内继续。" : "同一台电脑，换个浏览器。",
+    kind === "public" ? "通过公网安全访问。" : lan ? "在可信局域网内继续。" : "同一台电脑，换个浏览器。",
   );
   $("share-warning").textContent = t(
-    lan
+    kind === "public"
+      ? "此链接同时经过 Cloudflare Access 与 DSH 认证，并包含完整访问凭证，请勿公开转发。"
+      : lan
       ? "此链接包含完整访问权限。仅限可信私有网络；HTTP 未加密，请勿公开或转发给不可信的人。"
       : "此链接包含完整访问凭证，请勿公开。当前为仅本机地址，手机无法访问。",
   );
-  $("share-step").hidden = !lan;
+  $("share-step").hidden = kind === "public" || !lan;
   $("share-step").textContent = t("扫码后，在打开的页面点击“进入工作空间”完成认证。");
+  dialogCopyAction = kind === "public" ? "copyPublic" : "copyShare";
+  $("dialog-copy").textContent = t(kind === "public" ? "复制公网认证连接" : "复制认证链接");
   await QRCode.toCanvas($("qr"), url, {
     width: 250,
     margin: 2,
     color: { dark: "#202322", light: "#ffffff" },
   });
   $<HTMLDialogElement>("share-dialog").showModal();
+}
+action("share", async () => {
+  await showShare(await call("share"), "local");
+});
+action("copy-public", async () => {
+  await call("copyPublic");
+  notice("公网认证连接已复制，请勿公开分享");
+});
+action("share-public", async () => {
+  await showShare(await call("sharePublic"), "public");
 });
 $("close-share").onclick = () => {
   $<HTMLDialogElement>("share-dialog").close();
@@ -267,6 +290,9 @@ function settingsValues(): Settings {
     hideOnClose: $<HTMLInputElement>("hide").checked,
     alwaysOnTop: $<HTMLInputElement>("ontop").checked,
     lan: $<HTMLInputElement>("lan").checked,
+    lanAddress: $<HTMLInputElement>("lan-address").value.trim(),
+    trustedHosts: $<HTMLTextAreaElement>("trusted-hosts").value.trim(),
+    publicURL: $<HTMLInputElement>("public-url").value.trim().replace(/\/$/, ""),
     trayOnly: $<HTMLInputElement>("tray-only").checked,
     language: $<HTMLSelectElement>("language").value,
     runtimeMode: $<HTMLSelectElement>("runtime-mode").value as Settings["runtimeMode"],

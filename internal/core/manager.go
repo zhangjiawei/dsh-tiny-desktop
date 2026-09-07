@@ -78,6 +78,7 @@ func (m *Manager) Snapshot() Snapshot {
 // Compare only values consumed by the installer and supervisor at Start.
 func sameLaunchSettings(a, b Settings) bool {
 	return a.Port == b.Port && a.Proxy == b.Proxy && a.LAN == b.LAN &&
+		a.LANAddress == b.LANAddress && a.TrustedHosts == b.TrustedHosts && a.PublicURL == b.PublicURL &&
 		a.RuntimeMode == b.RuntimeMode && a.ExtraArgs == b.ExtraArgs &&
 		a.Command == b.Command && a.Registry == b.Registry && a.StartupMinutes == b.StartupMinutes
 }
@@ -273,10 +274,14 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 	if err != nil {
 		return false, err
 	}
+	trusted, err := i.Settings.effectiveTrustedAuthorities()
+	if err != nil {
+		return false, err
+	}
+	args = appendTrustedAuthorities(args, trusted...)
 	args = append(args, "--no-open", "--port", strconv.Itoa(port))
 	if i.Settings.LAN {
-		requestedIP := trustedHost(args)
-		ip, e := requestedIP, error(nil)
+		ip, e := normalizeLANAddress(i.Settings.LANAddress)
 		if ip == "" {
 			ip, e = privateAddress()
 		}
@@ -290,9 +295,7 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 				return true, e
 			}
 			defer server.Close()
-			if requestedIP == "" {
-				args = append(args, "--trusted-host", ip)
-			}
+			args = appendTrustedAuthorities(args, ip)
 			m.mu.Lock()
 			m.lanIP = ip
 			m.mu.Unlock()

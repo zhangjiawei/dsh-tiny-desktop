@@ -42,7 +42,7 @@
           <span>退出应用</span>
         </button>
         <span class="local-dot"></span><span>本地运行 · 数据独立</span
-        ><small>v0.3.0</small>
+        ><small>v0.3.1</small>
       </footer>
     </aside>
     <main>
@@ -74,6 +74,8 @@
           <button id="browser">↗ 在浏览器中打开</button
           ><button id="copy">⧉ 复制认证链接</button
           ><button id="share">▦ 分享二维码</button
+          ><button id="copy-public" hidden>⧉ 复制公网认证连接</button
+          ><button id="share-public" hidden>▦ 公网二维码</button
           ><button id="updates">↓ 检查更新</button>
         </div>
         <div class="plugins panel">
@@ -172,8 +174,8 @@
               </div>
               <div class="field">
                 <label for="extra-args">附加启动参数</label>
-                <textarea id="extra-args" rows="2" placeholder="例如：--trusted-host 172.16.8.136" spellcheck="false"></textarea>
-                <small>Tiny 固定管理 web、--no-open、端口、监听地址和认证；仅可追加安全参数。局域网 IP 留空时自动选择默认路由网卡。</small>
+                <textarea id="extra-args" rows="2" placeholder="例如：--verbose" spellcheck="false"></textarea>
+                <small>Tiny 固定管理 web、--no-open、端口、监听地址和认证；仅可追加安全参数。网络主机请在下方独立配置，避免启动参数互相冲突。</small>
               </div>
               <div class="runtime-actions">
                 <span id="dsh-update-status" role="status">选择通道后检查版本，不影响正在运行的服务。</span>
@@ -249,6 +251,31 @@
                 ></span
               ><input id="lan" type="checkbox"
             /></label>
+            <div class="field-grid network-grid">
+              <div class="field">
+                <label for="lan-address">局域网绑定 IPv4</label>
+                <input id="lan-address" placeholder="留空时自动选择" inputmode="decimal" spellcheck="false" />
+                <small>只接受私有 IPv4，例如 172.16.8.136；不会从受信任主机推断。</small>
+              </div>
+              <div class="field">
+                <label for="public-url">公网访问地址</label>
+                <input id="public-url" type="url" placeholder="https://zgpc.zjwcf.us.ci" spellcheck="false" />
+                <small>只接受 HTTPS 域名和可选端口，不支持路径；保存后会自动加入受信任主机。</small>
+              </div>
+            </div>
+            <div class="field">
+              <label for="trusted-hosts">额外受信任的反向代理主机</label>
+              <textarea id="trusted-hosts" rows="3" placeholder="proxy.example.com&#10;192.168.1.10:8443&#10;[fd00::1]:8443" spellcheck="false"></textarea>
+              <small>每行一个精确域名、IPv4、[IPv6]，可带端口；禁止协议、路径、通配符和用户信息，最多 16 个。</small>
+            </div>
+            <div class="access-route" aria-label="双层公网访问链">
+              <span><strong>HTTPS 公网</strong><small>自定义域名</small></span>
+              <i aria-hidden="true">→</i>
+              <span><strong>Access / Tunnel</strong><small>反向代理到本机端口</small></span>
+              <i aria-hidden="true">→</i>
+              <span><strong>DSH token</strong><small>首次认证后写入浏览器</small></span>
+            </div>
+            <p class="network-note">同一 Windows Tunnel 可承载多个服务：每个服务使用独立子域名，并映射到不同的本地端口。DSH 当前映射到 127.0.0.1:3080。</p>
           </div>
           <div class="form-footer">
             <span id="settings-status" role="status">保存不会中断服务，启动参数在下次启动时生效。</span>

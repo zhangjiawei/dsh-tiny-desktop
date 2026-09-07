@@ -183,3 +183,31 @@ func (m *Manager) QRShareURL() (string, error) {
 	}
 	return u.String(), nil
 }
+
+// PublicShareURL combines the configured HTTPS origin with the live in-memory
+// DSH bearer token. It is computed only for an explicit user copy/share action:
+// the resulting secret is never persisted, logged or included in snapshots.
+func (m *Manager) PublicShareURL() (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.phase != "running" {
+		return "", errors.New("服务尚未就绪")
+	}
+	publicURL, err := normalizePublicURL(m.activeSettings.PublicURL)
+	if err != nil {
+		return "", err
+	}
+	if publicURL == "" {
+		return "", errors.New("请先配置公网访问地址并应用重启")
+	}
+	launch, err := url.Parse(m.launch)
+	if err != nil {
+		return "", err
+	}
+	public, err := url.Parse(publicURL)
+	if err != nil {
+		return "", err
+	}
+	public.RawQuery = launch.RawQuery
+	return public.String(), nil
+}

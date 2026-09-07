@@ -36,6 +36,20 @@ test("overview provides a real one-click service restart", async () => {
   assert.match(backend, /case "restartService":[\s\S]*manager\.Restart\(\)/);
 });
 
+test("reverse-proxy access stays separate from LAN binding and secrets", async () => {
+  const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
+  const client = await readFile(new URL("../frontend/src/main.ts", import.meta.url), "utf8");
+  const backend = await readFile(new URL("../cmd/desktop/main.go", import.meta.url), "utf8");
+  for (const id of ["lan-address", "trusted-hosts", "public-url", "copy-public", "share-public"])
+    assert.match(html, new RegExp(`id="${id}"`));
+  assert.match(html, /禁止协议、路径、通配符和用户信息/);
+  assert.match(html, /不同的本地端口/);
+  assert.match(client, /dialogCopyAction = kind === "public" \? "copyPublic" : "copyShare"/);
+  assert.match(backend, /case "sharePublic":[\s\S]*manager\.PublicShareURL/);
+  assert.match(backend, /case "copyPublic":[\s\S]*manager\.PublicShareURL/);
+  assert.doesNotMatch(html, /token=[A-Za-z0-9_-]{20,}/);
+});
+
 test("runtime settings keep managed and custom version ownership separate", async () => {
   const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
   const client = await readFile(new URL("../frontend/src/main.ts", import.meta.url), "utf8");

@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"errors"
-	"net"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -64,8 +63,9 @@ func ParseCommand(command string) ([]string, error) {
 	if started {
 		args = append(args, word.String())
 	}
-	trusted := ""
-	for index, a := range args {
+	trustedCount := 0
+	for index := 0; index < len(args); index++ {
+		a := args[index]
 		key, value, inline := strings.Cut(a, "=")
 		switch key {
 		case "--port", "--host", "--hostname", "--token", "--no-auth", "--disable-auth":
@@ -73,34 +73,21 @@ func ParseCommand(command string) ([]string, error) {
 		case "--trusted-host":
 			if !inline {
 				if index+1 >= len(args) {
-					return nil, errors.New("--trusted-host 必须填写私有 IPv4 地址")
+					return nil, errors.New("--trusted-host 必须填写精确的主机或 host:port")
 				}
-				value = args[index+1]
+				index++
+				value = args[index]
 			}
-			ip := net.ParseIP(value)
-			if trusted != "" || ip == nil || ip.To4() == nil || !ip.IsPrivate() {
-				return nil, errors.New("--trusted-host 仅允许填写一个私有 IPv4 地址")
+			if _, err := normalizeTrustedAuthority(value); err != nil {
+				return nil, err
 			}
-			trusted = ip.String()
+			trustedCount++
+			if trustedCount > maxTrustedAuthorities {
+				return nil, errors.New("--trusted-host 最多允许填写 16 个")
+			}
 		}
 	}
 	return args, nil
-}
-
-func trustedHost(args []string) string {
-	for index, arg := range args {
-		key, value, inline := strings.Cut(arg, "=")
-		if key != "--trusted-host" {
-			continue
-		}
-		if inline {
-			return value
-		}
-		if index+1 < len(args) {
-			return args[index+1]
-		}
-	}
-	return ""
 }
 
 // ParseManagedArgs validates only the optional arguments appended to Tiny's

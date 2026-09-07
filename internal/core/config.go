@@ -46,6 +46,9 @@ type Settings struct {
 	Port            int    `json:"port"`
 	Proxy           string `json:"proxy"`
 	LAN             bool   `json:"lan"`
+	LANAddress      string `json:"lanAddress"`
+	TrustedHosts    string `json:"trustedHosts"`
+	PublicURL       string `json:"publicURL"`
 	HideOnClose     bool   `json:"hideOnClose"`
 	TrayOnly        bool   `json:"trayOnly"`
 	AutoStart       bool   `json:"autoStart"`
@@ -81,6 +84,15 @@ func (s Settings) Validate() error {
 	}
 	if s.StartupMinutes < 1 || s.StartupMinutes > 120 {
 		return errors.New("启动等待时间必须在 1–120 分钟之间")
+	}
+	if _, err := normalizeLANAddress(s.LANAddress); err != nil {
+		return err
+	}
+	if _, err := parseTrustedAuthorities(s.TrustedHosts); err != nil {
+		return err
+	}
+	if _, err := normalizePublicURL(s.PublicURL); err != nil {
+		return err
 	}
 	if s.RuntimeMode != RuntimeModeManaged && s.RuntimeMode != RuntimeModeCustom {
 		return errors.New("请选择有效的 DSH 运行模式")
@@ -173,6 +185,15 @@ func (p Paths) LoadSettings() (Settings, error) {
 	}
 	if s.FixedDSHVersion == "" {
 		s.FixedDSHVersion = DSHVersion
+	}
+	// v0.3.0 and earlier overloaded one --trusted-host IPv4 as both the
+	// requested LAN listener and DSH's Host fence. Migrate only the exact legacy
+	// shape; commands with any other custom argument keep their original text.
+	if _, exists := fields["lanAddress"]; !exists && s.RuntimeMode == RuntimeModeManaged {
+		if address, ok := legacyLANAddress(s.ExtraArgs); ok {
+			s.LANAddress = address
+			s.ExtraArgs = ""
+		}
 	}
 	// v0.1 had a hardcoded Chinese default but no language chooser. Upgrade that
 	// implicit default to system; retain an explicitly configured English value.
