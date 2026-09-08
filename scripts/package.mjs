@@ -3,7 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdir, writeFile, copyFile } from "node:fs/promises";
 import sharp from "../frontend/node_modules/sharp/lib/index.js";
-const version = process.env.VERSION || "0.3.2";
+const version = process.env.VERSION || "0.3.3";
 if (!/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(version))
   throw Error("Invalid version");
 const arch =
@@ -69,7 +69,7 @@ if (platform === "darwin") {
   run("go", [
     "build",
     "-tags",
-    "production",
+    "production,devtools",
     "-trimpath",
     "-ldflags",
     `-s -w -X main.version=${version}`,
@@ -101,7 +101,7 @@ if (platform === "darwin") {
   run("go", [
     "build",
     "-tags",
-    "production",
+    "production,devtools",
     "-trimpath",
     "-ldflags",
     `-s -w -X main.version=${version}` +

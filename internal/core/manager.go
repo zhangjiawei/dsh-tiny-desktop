@@ -86,7 +86,8 @@ func sameLaunchSettings(a, b Settings) bool {
 	return a.Port == b.Port && a.Proxy == b.Proxy && a.LAN == b.LAN &&
 		a.LANAddress == b.LANAddress && a.TrustedHosts == b.TrustedHosts && a.PublicURL == b.PublicURL &&
 		a.RuntimeMode == b.RuntimeMode && a.ExtraArgs == b.ExtraArgs &&
-		a.Command == b.Command && a.Registry == b.Registry && a.StartupMinutes == b.StartupMinutes
+		a.Command == b.Command && a.CommandPaths == b.CommandPaths &&
+		a.Registry == b.Registry && a.StartupMinutes == b.StartupMinutes
 }
 
 // Appearance changes are live and never restart an active DSH conversation.

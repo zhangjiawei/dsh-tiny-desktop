@@ -18,7 +18,7 @@ import (
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
 )
 
-var version = "0.3.2"
+var version = "0.3.3"
 
 // QA builds may override this via -ldflags to test in an isolated app instance.
 var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
@@ -232,7 +232,20 @@ func main() {
 	control = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "control", Title: "DSH Tiny · 设置", Width: 1000, Height: 800, MinWidth: 820, MinHeight: 680, URL: "/", Linux: application.LinuxWindow{Icon: settingsIcon}, BackgroundColour: application.NewRGB(245, 246, 245)})
 	// Start at a neutral document, not the wails:// control origin. WKWebView
 	// otherwise withholds DSH's SameSite=Strict cookie on the first redirect.
-	workspace = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "workspace", Title: "DSH Tiny", Width: settings.Width, Height: settings.Height, MinWidth: 760, MinHeight: 540, Hidden: true, AlwaysOnTop: settings.AlwaysOnTop, URL: "about:blank", KeyBindings: map[string]func(application.Window){"CmdOrCtrl+,": func(application.Window) { showControl() }, "CmdOrCtrl+R": func(w application.Window) { w.Reload() }}})
+	workspace = app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name: "workspace", Title: "DSH Tiny", Width: settings.Width, Height: settings.Height,
+		MinWidth: 760, MinHeight: 540, Hidden: true, AlwaysOnTop: settings.AlwaysOnTop, URL: "about:blank",
+		// The workspace has no privileged Tiny bindings. Enable its native menu and
+		// inspector so failures that only occur in WKWebView/WebView2/WebKitGTK can
+		// be diagnosed without changing or instrumenting upstream DSH code.
+		DevToolsEnabled: true, DefaultContextMenuDisabled: false,
+		CSS: `html { --default-contextmenu: show; }`,
+		KeyBindings: map[string]func(application.Window){
+			"CmdOrCtrl+,":       func(application.Window) { showControl() },
+			"CmdOrCtrl+R":       func(w application.Window) { w.Reload() },
+			"CmdOrCtrl+Shift+I": func(w application.Window) { w.OpenDevTools() },
+		},
+	})
 	hideToTray := func() {
 		// Hide every native window, so Windows/Linux remove their taskbar entries.
 		// macOS additionally needs an accessory activation policy to remove Dock.
@@ -285,6 +298,7 @@ func main() {
 	addMenu(menu, "设置", "Settings", func(*application.Context) { showControl() })
 	menu.AddSeparator()
 	addMenu(menu, "刷新", "Reload", func(*application.Context) { workspace.Reload() })
+	addMenu(menu, "开发者工具", "Developer tools", func(*application.Context) { workspace.OpenDevTools() })
 	addMenu(menu, "放大", "Zoom in", func(*application.Context) { workspace.ZoomIn() })
 	addMenu(menu, "缩小", "Zoom out", func(*application.Context) { workspace.ZoomOut() })
 	addMenu(menu, "恢复缩放", "Reset zoom", func(*application.Context) { workspace.ZoomReset() })
@@ -303,7 +317,11 @@ func main() {
 	appMenu := app.NewMenu()
 	appSubmenu := appMenu.AddSubmenu("DSH Tiny")
 	addMenu(appSubmenu, "设置", "Settings", func(*application.Context) { showControl() })
+	addMenu(appSubmenu, "开发者工具", "Developer tools", func(*application.Context) { workspace.OpenDevTools() })
 	addMenu(appSubmenu, "退出", "Quit", func(*application.Context) { app.Quit() })
+	// Replacing Wails' default application menu must preserve native edit roles;
+	// otherwise copy/paste shortcuts fail in both control inputs and web content.
+	appMenu.AddRole(application.EditMenu)
 	app.Menu.Set(appMenu)
 	applyAppearance = func() {
 		s := manager.Snapshot()

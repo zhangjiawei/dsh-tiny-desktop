@@ -59,6 +59,7 @@ type Settings struct {
 	FixedDSHVersion string `json:"fixedDshVersion"`
 	ExtraArgs       string `json:"extraArgs"`
 	Command         string `json:"command"`
+	CommandPaths    string `json:"commandPaths"`
 	Registry        string `json:"registry"`
 	StartupMinutes  int    `json:"startupMinutes"`
 	Width           int    `json:"width"`
@@ -84,6 +85,9 @@ func (s Settings) Validate() error {
 	}
 	if s.StartupMinutes < 1 || s.StartupMinutes > 120 {
 		return errors.New("启动等待时间必须在 1–120 分钟之间")
+	}
+	if _, err := parseCommandPaths(s.CommandPaths); err != nil {
+		return err
 	}
 	if _, err := normalizeLANAddress(s.LANAddress); err != nil {
 		return err

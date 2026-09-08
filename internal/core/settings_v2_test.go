@@ -190,12 +190,14 @@ func TestExistingInstallReusesReceiptWithoutRegistryAccess(t *testing.T) {
 	folder := strings.TrimSuffix(strings.TrimSuffix(filepath.Base(asset.URL), ".tar.gz"), ".zip")
 	node := filepath.Join(p.Runtime, folder, "bin", exeName("node"))
 	npm := filepath.Join(p.Runtime, folder, "lib", "node_modules", "npm", "bin", "npm-cli.js")
+	npx := filepath.Join(p.Runtime, folder, "lib", "node_modules", "npm", "bin", "npx-cli.js")
 	if runtime.GOOS == "windows" {
 		node = filepath.Join(p.Runtime, folder, "node.exe")
 		npm = filepath.Join(p.Runtime, folder, "node_modules", "npm", "bin", "npm-cli.js")
+		npx = filepath.Join(p.Runtime, folder, "node_modules", "npm", "bin", "npx-cli.js")
 	}
 	cli := filepath.Join(p.Runtime, "dsh/node_modules/@deepseek-ai/dsh/lib/bin.js")
-	for _, path := range []string{node, npm, cli} {
+	for _, path := range []string{node, npm, npx, cli} {
 		if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 			t.Fatal(err)
 		}

@@ -1,5 +1,17 @@
 # 验证记录
 
+## v0.3.3 内嵌诊断与跨平台命令发现
+
+- 回归测试先稳定复现四个缺口：私有 Unix Node 缺少 `npm`/`npx` 入口、GUI 会话缺少常见 CLI 目录、工作区没有开发者工具入口、正式包的 `production` 标签会把 `OpenDevTools` 编译为空操作。
+- 修复后，三平台路径矩阵验证 Tiny 私有工具始终排在首位；macOS 包含 `/usr/local/bin`、`/opt/homebrew/bin`，Windows 包含用户 npm、Scoop、Node 等常见目录，Linux 包含用户 bin、Nix 等常见目录。额外目录要求每行一个绝对路径，最多 32 个，并作为启动配置在下次 DSH 启动生效。
+- 本机安装的 `@deepseek-ai/dsh-subprocess-local` 已核对会从 DSH 父进程的脱敏环境保留 `PATH`，因此路径会传递到技能和终端，不是仅对首次安装命令生效。
+- `go test -count=1 ./...`、`go test -race -count=1 ./internal/core`、`go vet ./...`、前端测试/构建及 `production,devtools` macOS 测试通过；Windows x64/ARM64 核心测试与正式桌面程序交叉编译通过，产物仍为 PE GUI 子系统，Linux x64/ARM64 核心测试也完成交叉编译。
+- macOS Intel 隔离原生候选以关闭自动启动的临时设置运行，确认新版设置字段和标准 Edit 菜单可访问；点击应用菜单的“开发者工具”后产生独立 Inspector 原生窗口。候选正常退出且所有临时目录与交叉编译产物已删除，正式 3080 服务保持原 PID。Windows/Linux 原生右键和 Inspector 行为仍需发布工作流或对应机器验证。
+- `0.3.3` ad-hoc 签名 Intel 包经 `codesign --verify --deep --strict`、Mach-O x86_64 架构与 ZIP 完整性检查后替换本机 `/Applications/DSH Tiny.app`。真实独立数据在替换前后均为 21631 个文件、163 个会话文件和 1 个 workspace 存储文件；新进程复用原 Profile，在 `127.0.0.1:3080` 重新认证就绪。
+- 从真实 DSH 子进程环境解析确认 Tiny 私有工具与 Node 在 PATH 首位，`node 24.20.0`、`npm/npx 11.19.0`、`pnpm 10.28.0` 及 `/usr/local/bin/wecom-cli 1.1.0` 均可发现；私有 `npm`/`npx` 是指向 Node 自带脚本的符号链接。
+- 安装后的原生工作区完成无发送的“粘贴、全选、复制、清空”往返并恢复原剪贴板；右键菜单实际显示 Back、Reload 与 Inspect Element，开发者工具以内嵌 Inspector 打开。最小化保留 macOS 普通 Dock 模式；关闭后切换为菜单栏模式，点击菜单栏图标恢复，App/DSH PID 与 3080 监听全程不变。
+- 本次真实启动日志显示“已认证并就绪”；启动 URL 的一条 token 记录为字面量 `<REDACTED>`，原始 token 计数为 0。界面测试产生的截图、HTTP 响应、旧 App 临时备份和构建目录在发布收尾时删除。
+
 ## v0.3.2 通用 Profile 激活与谨慎重启
 
 - `TestProfileChangesStayProducerAgnosticAndContinuous` 使用隔离临时 Profile 连续修改 `package.json` 和 `pnpm-lock.yaml`；即使存在任意第三方 `.dsh-pending-updates.json`，监听仍只按依赖指纹连续报告变化，不读取其格式或含义。静态门禁同时拒绝在核心监听器中出现 `dshmarket`、`dsh-market` 或私有 pending 文件依赖。

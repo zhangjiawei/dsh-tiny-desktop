@@ -75,6 +75,15 @@ test("runtime settings keep managed and custom version ownership separate", asyn
   assert.match(backend, /case "rollbackDSH":[\s\S]*manager\.RollbackDSH/);
 });
 
+test("runtime settings expose cross-platform command discovery without naming one CLI", async () => {
+  const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
+  const client = await readFile(new URL("../frontend/src/main.ts", import.meta.url), "utf8");
+  assert.match(html, /id="command-paths"/);
+  assert.match(html, /每行一个绝对目录/);
+  assert.doesNotMatch(html, /wecom-cli/);
+  assert.match(client, /commandPaths:/);
+});
+
 test("runtime updater has a visually consistent three-node track", async () => {
   const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
   const css = await readFile(new URL("../frontend/src/style.css", import.meta.url), "utf8");

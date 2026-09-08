@@ -48,6 +48,8 @@ const en: Record<string, string> = {
   "支持带引号的路径和参数；不支持 Shell 管道、变量、重定向或多条命令。端口、监听地址和认证由应用管理；局域网分享可选填 --trusted-host 私有 IPv4，未填写则使用默认路由网卡地址。请勿填写 --port、--host、--token 或关闭认证的参数。pnpm 使用应用内置环境，仅允许示例中列出的必要安装脚本。": "Quoted paths and arguments are supported; shell pipes, variables, redirects and multiple commands are not. The app manages ports, listen addresses and authentication. For LAN sharing, --trusted-host may specify one private IPv4 address; otherwise the default-route adapter is used. Do not add --port, --host, --token or disable authentication. pnpm uses the app's private runtime and permits only the necessary build scripts listed in the default command.",
   "端口占用自动检测；被占用时自动选择随机可用端口。": "Automatically detect occupied ports and select a random available port when needed.",
   "默认使用 npmmirror 国内镜像。启动命令继承此仓库；命令中显式指定的 registry 优先。镜像同步可能延迟，可按需切换仓库。": "Defaults to the China-friendly npmmirror registry. Launch commands inherit this registry unless explicitly overridden. Mirrors may lag behind upstream; change the registry when needed.",
+  额外命令目录: "Additional command directories",
+  "每行一个绝对目录。Tiny 的私有 Node、npm、npx 和 pnpm 始终优先；系统常见目录会自动补充，此处用于其他包管理器或自定义 CLI，重启 DSH 后生效。": "One absolute directory per line. Tiny's private Node, npm, npx and pnpm always take precedence; common system directories are added automatically. Use this for other package managers or custom CLIs, then restart DSH.",
   "本地运行 · 数据独立": "Local · Isolated data",
   "管理你的本地 DSH 工作空间。": "Manage your local DSH workspace.",
   "首次运行自动安装独立环境与 6 个最新版插件，不影响原有 DshShell。":
@@ -320,6 +322,9 @@ export function setLanguage(choice: string, system: string) {
   document
     .getElementById("extra-args")
     ?.setAttribute("placeholder", language === "zh" ? "例如：--verbose" : "Example: --verbose");
+  document
+    .getElementById("command-paths")
+    ?.setAttribute("placeholder", "/opt/tools/bin\nC:\\Tools\\bin");
   document
     .getElementById("lan-address")
     ?.setAttribute("placeholder", language === "zh" ? "留空时自动选择" : "Leave empty for automatic selection");

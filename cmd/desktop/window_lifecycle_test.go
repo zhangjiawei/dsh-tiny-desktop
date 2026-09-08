@@ -4,6 +4,8 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -55,6 +57,41 @@ func TestWindowLifecycleKeepsMinimiseNative(t *testing.T) {
 	}
 	if closeHooksWithTrayHide != 2 {
 		t.Fatalf("close-to-tray wiring changed: got %d hooks, want 2", closeHooksWithTrayHide)
+	}
+}
+
+func TestWorkspaceKeepsEmbeddedDiagnosticsWithoutPrivilegingControlPage(t *testing.T) {
+	contents, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(contents)
+	if !strings.Contains(source, `Name: "workspace"`) || !strings.Contains(source, `DevToolsEnabled: true`) {
+		t.Fatal("embedded workspace diagnostics are not enabled")
+	}
+	if !strings.Contains(source, `--default-contextmenu: show`) {
+		t.Fatal("workspace right-click menu is not forced on")
+	}
+	if !strings.Contains(source, `CmdOrCtrl+Shift+I`) || !strings.Contains(source, `workspace.OpenDevTools()`) {
+		t.Fatal("workspace developer tools lack an explicit shortcut/menu action")
+	}
+	if !strings.Contains(source, `appMenu.AddRole(application.EditMenu)`) {
+		t.Fatal("standard clipboard menu is missing")
+	}
+	controlStart := strings.Index(source, `Name: "control"`)
+	workspaceStart := strings.Index(source, `Name: "workspace"`)
+	if controlStart < 0 || workspaceStart < 0 || strings.Contains(source[controlStart:workspaceStart], `DevToolsEnabled: true`) {
+		t.Fatal("control window must not expose workspace diagnostics")
+	}
+}
+
+func TestProductionPackagesCompileDeveloperToolsForExplicitWorkspaceDiagnostics(t *testing.T) {
+	contents, err := os.ReadFile("../../scripts/package.mjs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(contents), `"production,devtools"`) {
+		t.Fatal("production package would compile OpenDevTools as a no-op")
 	}
 }
 

@@ -42,7 +42,7 @@
           <span>退出应用</span>
         </button>
         <span class="local-dot"></span><span>本地运行 · 数据独立</span
-        ><small>v0.3.2</small>
+        ><small>v0.3.3</small>
       </footer>
     </aside>
     <main>
@@ -239,6 +239,11 @@
                 type="url"
                 placeholder="https://registry.npmmirror.com"
               /><small>默认使用 npmmirror 国内镜像。启动命令继承此仓库；命令中显式指定的 registry 优先。镜像同步可能延迟，可按需切换仓库。</small>
+            </div>
+            <div class="field">
+              <label for="command-paths">额外命令目录</label>
+              <textarea id="command-paths" rows="3" placeholder="/opt/tools/bin&#10;C:\Tools\bin" spellcheck="false"></textarea>
+              <small>每行一个绝对目录。Tiny 的私有 Node、npm、npx 和 pnpm 始终优先；系统常见目录会自动补充，此处用于其他包管理器或自定义 CLI，重启 DSH 后生效。</small>
             </div>
             <div class="field">
               <label for="proxy">HTTP(S) 代理</label

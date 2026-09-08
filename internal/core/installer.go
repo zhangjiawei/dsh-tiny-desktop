@@ -43,7 +43,7 @@ func (i *Installer) environment(r Runtime) []string {
 		"DSH_HOME="+i.Paths.Data,
 		"DSH_PROFILE_DIR="+filepath.Join(i.Paths.Data, "profiles", "web"),
 		"DSH_RUNTIME_DIR="+runtimeDir(r, i.Paths),
-		"PATH="+r.Bin+string(os.PathListSeparator)+filepath.Dir(r.Node)+string(os.PathListSeparator)+os.Getenv("PATH"),
+		"PATH="+executablePath(r, i.Settings.CommandPaths),
 		"CI=true",
 	)
 	env = append(env, "npm_config_registry="+i.Settings.Registry)
@@ -129,11 +129,16 @@ func (i *Installer) node(ctx context.Context) (Runtime, error) {
 	root := filepath.Join(i.Paths.Runtime, folder)
 	node := filepath.Join(root, "bin", exeName("node"))
 	npm := filepath.Join(root, "lib/node_modules/npm/bin/npm-cli.js")
+	npx := filepath.Join(root, "lib/node_modules/npm/bin/npx-cli.js")
 	if runtime.GOOS == "windows" {
 		node = filepath.Join(root, "node.exe")
 		npm = filepath.Join(root, "node_modules/npm/bin/npm-cli.js")
+		npx = filepath.Join(root, "node_modules/npm/bin/npx-cli.js")
 	}
-	if runtimeFilesReady(node, npm) {
+	if runtimeFilesReady(node, npm, npx) {
+		if err = ensurePrivateNodeLaunchers(root, runtime.GOOS); err != nil {
+			return Runtime{}, err
+		}
 		return Runtime{Node: node, NPM: npm}, nil
 	}
 	i.Log.Add("正在下载独立 Node.js " + NodeVersion + "，并验证 SHA-256")
@@ -149,7 +154,10 @@ func (i *Installer) node(ctx context.Context) (Runtime, error) {
 	if err = extractArchive(archive, stage, runtime.GOOS == "windows"); err != nil {
 		return Runtime{}, err
 	}
-	if err = publishNodeRuntime(filepath.Join(stage, folder), root, []string{node, npm}, os.Rename, time.Sleep); err != nil {
+	if err = publishNodeRuntime(filepath.Join(stage, folder), root, []string{node, npm, npx}, os.Rename, time.Sleep); err != nil {
+		return Runtime{}, err
+	}
+	if err = ensurePrivateNodeLaunchers(root, runtime.GOOS); err != nil {
 		return Runtime{}, err
 	}
 	return Runtime{Node: node, NPM: npm}, nil

@@ -1,5 +1,12 @@
 # 实施计划
 
+## 内嵌工作区与命令环境
+
+- DSH 工作区继续使用独立的 Wails WebView 窗口；控制中心与 DSH DOM、认证 Cookie 和插件页面保持隔离。
+- 工作区启用原生右键菜单，并可从应用/托盘菜单或 `Cmd/Ctrl+Shift+I` 打开开发者工具。正式包使用 Wails `production,devtools` 标签，但不开放远程调试端口；控制中心窗口也不启用开发者工具。
+- DSH 子进程的 `PATH` 固定以 Tiny 私有 pnpm 与 Node 开头，然后加入用户配置的绝对目录、macOS/Windows/Linux 常见 CLI 目录和桌面会话继承目录。插件启动的后续任务会继承该环境。
+- 安全解压仍拒绝归档中的符号链接；Tiny 只在已校验的私有 Node 目录中恢复官方 `npm`/`npx` 入口，且拒绝覆盖异常文件或指向未知目标的链接。
+
 ## 已确认范围
 
 Wails v3 / Go / TypeScript；公开仓库 zhangjiawei/dsh-tiny-desktop；独立数据目录及导入；无分屏。

@@ -22,6 +22,7 @@ type Settings = {
   fixedDshVersion: string;
   extraArgs: string;
   command: string;
+  commandPaths: string;
   registry: string;
   startupMinutes: number;
   width: number;
@@ -211,6 +212,7 @@ function render(s: State) {
     $<HTMLInputElement>("fixed-dsh-version").value = s.settings.fixedDshVersion;
     $<HTMLTextAreaElement>("extra-args").value = s.settings.extraArgs;
     $<HTMLInputElement>("command").value = s.settings.command;
+    $<HTMLTextAreaElement>("command-paths").value = s.settings.commandPaths;
     $<HTMLInputElement>("registry").value = s.settings.registry;
     $<HTMLInputElement>("startup-minutes").value = String(
       s.settings.startupMinutes,
@@ -346,6 +348,7 @@ function settingsValues(): Settings {
     fixedDshVersion: $<HTMLInputElement>("fixed-dsh-version").value.trim(),
     extraArgs: $<HTMLTextAreaElement>("extra-args").value.trim(),
     command: $<HTMLInputElement>("command").value.trim(),
+    commandPaths: $<HTMLTextAreaElement>("command-paths").value.trim(),
     registry: $<HTMLInputElement>("registry").value.trim().replace(/\/$/, ""),
     startupMinutes: Number($<HTMLInputElement>("startup-minutes").value),
   };
