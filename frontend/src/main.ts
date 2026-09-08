@@ -36,6 +36,8 @@ type State = {
   settings: Settings;
   systemLanguage: string;
   restartRequired: boolean;
+  activationPending: boolean;
+  activationChangedAt: string;
   lanActive: boolean;
   portChanged: boolean;
   preferredPort: number;
@@ -77,6 +79,7 @@ let importedBackup = "";
 let source = "";
 let first = true;
 let dialogCopyAction = "copyShare";
+let pendingServiceAction: (() => Promise<void>) | undefined;
 (window as any).tinyReply = (id: number, value: any, error: string) => {
   const p = pending.get(id);
   if (!p) return;
@@ -112,6 +115,25 @@ function action(id: string, fn: () => Promise<unknown>) {
   $(id).onclick = () => {
     fn().catch((e) => notice(e.message));
   };
+}
+function serviceIsActive() {
+  return Boolean(state && ["installing", "starting", "running"].includes(state.phase));
+}
+function requestServiceInterruption(
+  title: string,
+  description: string,
+  confirmLabel: string,
+  run: () => Promise<void>,
+) {
+  if (!serviceIsActive()) {
+    void run().catch((error) => notice(error.message));
+    return;
+  }
+  pendingServiceAction = run;
+  $("service-dialog-title").textContent = t(title);
+  $("service-dialog-description").textContent = t(description);
+  $("confirm-service-action").textContent = t(confirmLabel);
+  $<HTMLDialogElement>("service-dialog").showModal();
 }
 const labels: Record<string, string> = {
   stopped: "已停止",
@@ -151,8 +173,15 @@ function render(s: State) {
   const versionBusy = s.dshUpdate.busy;
   ($("start") as HTMLButtonElement).disabled = active || versionBusy;
   $("start").hidden = active;
-  ($("restart-service") as HTMLButtonElement).disabled = !active || versionBusy;
-  $("restart-service").hidden = !active;
+  ($("restart-service") as HTMLButtonElement).disabled = s.phase !== "running" || versionBusy;
+  $("restart-service").hidden = s.phase !== "running";
+  $("activation-notice").hidden = !s.activationPending;
+  $("activation-title").textContent = t("运行环境已变化");
+  $("activation-description").textContent = t(active
+    ? "当前 DSH 继续运行，重启后生效。Tiny 不会自动中断任务。"
+    : "下次成功启动 DSH 后生效。");
+  $("activate-restart").hidden = s.phase !== "running";
+  $<HTMLButtonElement>("activate-restart").disabled = versionBusy;
   $("open").classList.toggle("primary", s.phase === "running");
   ($("stop") as HTMLButtonElement).disabled = !active || versionBusy;
   for (const id of ["save-settings", "apply-restart", "choose", "import", "restore"]) {
@@ -219,11 +248,28 @@ function route() {
 window.addEventListener("hashchange", route);
 route();
 action("start", () => call("start"));
-action("stop", () => call("stop"));
-action("restart-service", async () => {
-  notice("正在重新启动 DSH…");
-  await call("restartService");
-});
+function confirmRestart() {
+  requestServiceInterruption(
+    "重启 DSH？",
+    "重启会停止当前 DSH 进程，正在运行的任务将中断。Tiny 无法可靠判断任务是否空闲，请确认后继续。",
+    "确认重启",
+    async () => {
+      notice("正在重新启动 DSH…");
+      await call("restartService");
+    },
+  );
+}
+$("restart-service").onclick = confirmRestart;
+$("activate-restart").onclick = confirmRestart;
+$("stop").onclick = () => requestServiceInterruption(
+  "停止 DSH？",
+  "停止服务会结束当前 DSH 进程，正在运行的任务将中断。",
+  "确认停止",
+  async () => {
+    notice("正在停止 DSH…");
+    await call("stop");
+  },
+);
 action("open", async () => {
   await call("open");
   notice("已打开工作空间");
@@ -314,12 +360,19 @@ $("settings-form").onsubmit = (e) => {
     })
     .catch((e) => notice(e.message));
 };
-action("apply-restart", async () => {
+$("apply-restart").onclick = () => {
   if (!state) return;
-  notice("正在应用设置并重启");
-  await call("restart", settingsValues());
-  notice("设置已保存");
-});
+  requestServiceInterruption(
+    "应用设置并重启 DSH？",
+    "应用运行设置需要停止当前 DSH 进程，正在运行的任务将中断。",
+    "应用并重启",
+    async () => {
+      notice("正在应用设置并重启");
+      await call("restart", settingsValues());
+      notice("设置已保存");
+    },
+  );
+};
 $("command-example").onclick = () => {
   if (state) $<HTMLInputElement>("command").value = state.defaults.command;
 };
@@ -338,21 +391,31 @@ action("check-dsh-update", async () => {
   state!.dshUpdate = info;
   renderRuntime(state!);
 });
-action("apply-dsh-update", async () => {
-  if (!state) return;
-  render(await call("configure", settingsValues()));
-  notice("正在升级 DSH；失败会自动恢复旧版本…");
-  const info = await call("applyDSHUpdate");
-  state!.dshUpdate = info;
-  render(await call("status"));
-  notice("DSH 升级完成");
-});
-action("rollback-dsh", async () => {
-  notice("正在回退 DSH；当前数据会先建立恢复点…");
-  await call("rollbackDSH");
-  render(await call("status"));
-  notice("DSH 已回退到上一版本");
-});
+$("apply-dsh-update").onclick = () => requestServiceInterruption(
+  "升级 DSH？",
+  "升级会停止当前 DSH 进程并验证新版本，正在运行的任务将中断。失败时会自动回退。",
+  "确认升级",
+  async () => {
+    if (!state) return;
+    render(await call("configure", settingsValues()));
+    notice("正在升级 DSH；失败会自动恢复旧版本…");
+    const info = await call("applyDSHUpdate");
+    state!.dshUpdate = info;
+    render(await call("status"));
+    notice("DSH 升级完成");
+  },
+);
+$("rollback-dsh").onclick = () => requestServiceInterruption(
+  "回退 DSH？",
+  "回退会停止当前 DSH 进程，正在运行的任务将中断。当前数据会先建立恢复点。",
+  "确认回退",
+  async () => {
+    notice("正在回退 DSH；当前数据会先建立恢复点…");
+    await call("rollbackDSH");
+    render(await call("status"));
+    notice("DSH 已回退到上一版本");
+  },
+);
 $("registry-default").onclick = () => {
   if (state) $<HTMLInputElement>("registry").value = state.defaults.registry;
 };
@@ -361,6 +424,19 @@ $("cancel-quit").onclick = () => $<HTMLDialogElement>("quit-dialog").close();
 action("confirm-quit", async () => {
   notice("正在退出应用…");
   await call("quit");
+});
+$("cancel-service-action").onclick = () => {
+  pendingServiceAction = undefined;
+  $<HTMLDialogElement>("service-dialog").close();
+};
+$<HTMLDialogElement>("service-dialog").oncancel = () => {
+  pendingServiceAction = undefined;
+};
+action("confirm-service-action", async () => {
+  const run = pendingServiceAction;
+  pendingServiceAction = undefined;
+  $<HTMLDialogElement>("service-dialog").close();
+  if (run) await run();
 });
 for (const id of ["language", "tray-only", "hide", "ontop"]) {
   $(id).onchange = async () => {
@@ -395,30 +471,40 @@ $<HTMLInputElement>("credentials").onchange = () => {
   $<HTMLButtonElement>("import").disabled = true;
   $("preview").textContent = t("选项已改变，请重新选择目录以预览。");
 };
-action("import", async () => {
-  if (!source) return;
-  const button = $<HTMLButtonElement>("import");
-  button.disabled = true;
-  notice("正在安全停止服务并合并数据，完成后会自动恢复…");
-  try {
-    const result: { backup: string; restarted: boolean } = await call("import", {
-      source,
-      credentials: $<HTMLInputElement>("credentials").checked,
-    });
-    importedBackup = result.backup;
-    $("restore").hidden = false;
-    notice(result.restarted ? "合并完成，DSH 已自动重新启动。" : "合并完成。Tiny 同名数据保持不变。");
-  } catch (error) {
-    button.disabled = false;
-    throw error;
-  }
-});
-action("restore", async () => {
-  notice("正在恢复导入前的数据，完成后会自动恢复服务…");
-  await call("restore", { backup: importedBackup });
-  $("restore").hidden = true;
-  notice("已恢复备份");
-});
+$("import").onclick = () => requestServiceInterruption(
+  "导入 DSH 数据？",
+  "导入期间需要停止当前 DSH 进程，正在运行的任务将中断；完成或失败后会恢复服务。",
+  "确认导入",
+  async () => {
+    if (!source) return;
+    const button = $<HTMLButtonElement>("import");
+    button.disabled = true;
+    notice("正在安全停止服务并合并数据，完成后会自动恢复…");
+    try {
+      const result: { backup: string; restarted: boolean } = await call("import", {
+        source,
+        credentials: $<HTMLInputElement>("credentials").checked,
+      });
+      importedBackup = result.backup;
+      $("restore").hidden = false;
+      notice(result.restarted ? "合并完成，DSH 已自动重新启动。" : "合并完成。Tiny 同名数据保持不变。");
+    } catch (error) {
+      button.disabled = false;
+      throw error;
+    }
+  },
+);
+$("restore").onclick = () => requestServiceInterruption(
+  "恢复导入前的数据？",
+  "恢复备份需要停止当前 DSH 进程，正在运行的任务将中断；完成或失败后会恢复服务。",
+  "确认恢复",
+  async () => {
+    notice("正在恢复导入前的数据，完成后会自动恢复服务…");
+    await call("restore", { backup: importedBackup });
+    $("restore").hidden = true;
+    notice("已恢复备份");
+  },
+);
 async function poll() {
   try {
     render(await call("status"));

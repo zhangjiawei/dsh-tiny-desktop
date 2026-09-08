@@ -1,6 +1,16 @@
 # 验证记录
 
-# v0.3.1 反向代理与公网认证
+## v0.3.2 通用 Profile 激活与谨慎重启
+
+- `TestProfileChangesStayProducerAgnosticAndContinuous` 使用隔离临时 Profile 连续修改 `package.json` 和 `pnpm-lock.yaml`；即使存在任意第三方 `.dsh-pending-updates.json`，监听仍只按依赖指纹连续报告变化，不读取其格式或含义。静态门禁同时拒绝在核心监听器中出现 `dshmarket`、`dsh-market` 或私有 pending 文件依赖。
+- `TestProfileChangeOnlyMarksActivationPending` 给运行中的 Manager 注入通用 Profile 变化，确认 phase 和受管取消函数不变，只增加 `activationPending` 与时间戳。`TestProfileActivationRequiresMatchingBootGeneration` 证明启动期间再次变化不会被就绪事件错误清除，只有成功进程使用的启动指纹与磁盘当前指纹一致才完成激活。
+- 真实隔离根目录 `/tmp/dsh-tiny-profile-smoke.*` 安装 Node 24.20.0、pnpm 10.28.0、DSH 0.1.2-rc.1 和当次六个最新预置插件。DSH 在端口 55960 认证就绪后修改通用 `package.json` 字段，认证 URL 继续通过且状态只变为待激活；显式 `Manager.Restart()` 后新进程在 55971 认证就绪并清除状态。约 955 MiB 隔离目录随后完整删除，两个端口均无监听。
+- 前端 9 项测试和 TypeScript 构建通过；门禁要求所有进程级操作使用统一确认弹窗，并验证设置“应用并重启”最终调用 `Manager.Restart()`。Windows 原生 WebView2 smoke 已更新为先验证弹窗打开、再确认并观察真实进程重启及认证恢复。
+- 本地 `go test -count=1 ./...`、`go test -race ./internal/core`、`go vet ./...`、`go mod tidy -diff` 全部通过。Windows x86-64/AArch64 的核心测试与正式 GUI 子系统桌面程序交叉编译通过，临时 PE 文件和目录均已删除。
+- 发布规则改为纯语义版本标签生成正式版、带后缀标签生成预览版；`v0.3.2` 因此是正式版。macOS x86-64 本地包的 Info.plist 版本为 0.3.2、最低系统 13.0，Mach-O 架构正确，ad-hoc `codesign --verify --deep --strict` 与 ZIP 完整性检查通过。
+- 原生 macOS 设置窗口完成布局检查；另在 1280×720 隔离静态预览检查待激活提示，没有横向溢出或遮挡。临时 App、预览服务、浏览器页、截图和设置目录均已关闭并删除；未读取或修改用户 `~/.dsh`、正式 Tiny 数据或已安装插件源码。
+
+## v0.3.1 反向代理与公网认证
 
 - 精确 authority 单测覆盖 ASCII 域名、IPv4、方括号 IPv6、可选端口、大小写规范化与去重；协议、路径、通配符、用户信息、裸 IPv6、空端口、前导零、越界端口和非 ASCII 域名全部拒绝。公网地址仅接受无路径/查询/片段的 HTTPS origin，并自动进入可信主机列表。
 - v0.3.0 以前单一私有 IPv4 `--trusted-host` 的托管配置迁移到独立局域网绑定字段；设置可信主机与局域网监听互不推断。公网分享单测确认只从运行中的内存认证 URL 组合 token，状态快照和日志不含 token；未配置或未运行时失败闭合。

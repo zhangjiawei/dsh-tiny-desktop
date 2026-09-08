@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -13,19 +14,21 @@ import (
 )
 
 type Snapshot struct {
-	Phase           string        `json:"phase"`
-	Error           string        `json:"error"`
-	Port            int           `json:"port"`
-	Data            string        `json:"data"`
-	Logs            []LogLine     `json:"logs"`
-	Settings        Settings      `json:"settings"`
-	SystemLanguage  string        `json:"systemLanguage"`
-	RestartRequired bool          `json:"restartRequired"`
-	LANActive       bool          `json:"lanActive"`
-	PortChanged     bool          `json:"portChanged"`
-	PreferredPort   int           `json:"preferredPort"`
-	Defaults        Settings      `json:"defaults"`
-	DSHUpdate       DSHUpdateInfo `json:"dshUpdate"`
+	Phase               string        `json:"phase"`
+	Error               string        `json:"error"`
+	Port                int           `json:"port"`
+	Data                string        `json:"data"`
+	Logs                []LogLine     `json:"logs"`
+	Settings            Settings      `json:"settings"`
+	SystemLanguage      string        `json:"systemLanguage"`
+	RestartRequired     bool          `json:"restartRequired"`
+	ActivationPending   bool          `json:"activationPending"`
+	ActivationChangedAt string        `json:"activationChangedAt"`
+	LANActive           bool          `json:"lanActive"`
+	PortChanged         bool          `json:"portChanged"`
+	PreferredPort       int           `json:"preferredPort"`
+	Defaults            Settings      `json:"defaults"`
+	DSHUpdate           DSHUpdateInfo `json:"dshUpdate"`
 }
 type Manager struct {
 	mu                       sync.Mutex
@@ -46,6 +49,8 @@ type Manager struct {
 	updateChecked            string
 	updateCancel             context.CancelFunc
 	updateDone               chan struct{}
+	activationPending        bool
+	activationChanged        string
 }
 
 func NewManager(p Paths, s Settings) *Manager {
@@ -65,10 +70,11 @@ func (m *Manager) Snapshot() Snapshot {
 	m.mu.Lock()
 	snapshot := Snapshot{Phase: m.phase, Error: m.lastError, Port: m.port, Data: m.paths.Data,
 		Logs: m.log.Lines(), Settings: m.settings, SystemLanguage: m.systemLanguage,
-		RestartRequired: m.cancel != nil && !sameLaunchSettings(m.settings, m.activeSettings),
-		LANActive:       m.phase == "running" && m.lanIP != "",
-		PortChanged:     m.phase == "running" && m.port != m.activeSettings.Port,
-		PreferredPort:   m.activeSettings.Port, Defaults: Defaults()}
+		RestartRequired:   m.cancel != nil && !sameLaunchSettings(m.settings, m.activeSettings),
+		ActivationPending: m.activationPending, ActivationChangedAt: m.activationChanged,
+		LANActive:     m.phase == "running" && m.lanIP != "",
+		PortChanged:   m.phase == "running" && m.port != m.activeSettings.Port,
+		PreferredPort: m.activeSettings.Port, Defaults: Defaults()}
 	m.mu.Unlock()
 	snapshot.DSHUpdate = m.localUpdateInfo()
 	return snapshot
@@ -195,6 +201,42 @@ func (m *Manager) Restart() error {
 	m.stopService()
 	return m.startService()
 }
+
+// noteProfileChange records a generic runtime activation boundary. It must not
+// inspect plugin names or producer-specific markers, and it must never stop the
+// child: only an explicit user lifecycle action may cross that boundary.
+func (m *Manager) noteProfileChange() {
+	m.mu.Lock()
+	first := !m.activationPending
+	m.activationPending = true
+	m.activationChanged = time.Now().Format(time.RFC3339)
+	m.mu.Unlock()
+	if first {
+		m.log.Add("检测到运行环境变化；当前 DSH 保持运行，重启后生效")
+	}
+}
+
+// markProfileActivated clears pending state only when the successfully ready
+// child started from the same dependency generation that is still on disk.
+// A concurrent update therefore remains visible instead of being lost.
+func (m *Manager) markProfileActivated(profile string, bootFingerprint []byte) {
+	current, err := profileFingerprint(profile)
+	if err != nil || !bytes.Equal(current, bootFingerprint) {
+		if err == nil {
+			m.noteProfileChange()
+		}
+		return
+	}
+	m.mu.Lock()
+	hadPending := m.activationPending
+	m.activationPending = false
+	m.activationChanged = ""
+	m.mu.Unlock()
+	if hadPending {
+		m.log.Add("运行环境变化已由本次 DSH 启动激活")
+	}
+}
+
 func (m *Manager) run(ctx context.Context, s Settings, done chan struct{}) {
 	var failure error
 	defer func() {
@@ -228,46 +270,34 @@ func (m *Manager) run(ctx context.Context, s Settings, done chan struct{}) {
 	if repaired > 0 {
 		m.log.Add(fmt.Sprintf("已恢复 %d 个导入工作空间的注册关系；修复前文件已保留为 workspace.json.tiny-v0.2.12-recovery", repaired))
 	}
-	for {
-		profileRestart := false
-		for attempt := 0; attempt < 3; attempt++ {
-			// After a bind race (including a LAN-only collision), do not keep trying
-			// the preferred port just because its loopback interface still looks free.
-			preferred := s.Port
-			if attempt > 0 {
-				preferred = 0
-			}
-			port, err := CandidatePort(preferred)
-			if err != nil {
-				failure = err
-				return
-			}
-			m.mu.Lock()
-			m.port = port
-			m.phase = "starting"
-			m.launch = ""
-			m.mu.Unlock()
-			collision, serveErr := m.serve(ctx, installer, r, port)
-			if ctx.Err() != nil {
-				return
-			}
-			if errors.Is(serveErr, errProfileUpdated) {
-				m.log.Add("检测到 Web 插件更新完成，正在由 Tiny 重启 DSH")
-				profileRestart = true
-				break
-			}
-			if !collision {
-				failure = serveErr
-				return
-			}
-			m.log.Add("端口在启动期间被占用，正在选择新端口")
+	for attempt := 0; attempt < 3; attempt++ {
+		// After a bind race (including a LAN-only collision), do not keep trying
+		// the preferred port just because its loopback interface still looks free.
+		preferred := s.Port
+		if attempt > 0 {
+			preferred = 0
 		}
-		if profileRestart {
-			continue
+		port, err := CandidatePort(preferred)
+		if err != nil {
+			failure = err
+			return
 		}
-		failure = errors.New("连续三次端口竞争，请稍后重试")
-		return
+		m.mu.Lock()
+		m.port = port
+		m.phase = "starting"
+		m.launch = ""
+		m.mu.Unlock()
+		collision, serveErr := m.serve(ctx, installer, r, port)
+		if ctx.Err() != nil {
+			return
+		}
+		if !collision {
+			failure = serveErr
+			return
+		}
+		m.log.Add("端口在启动期间被占用，正在选择新端口")
 	}
+	failure = errors.New("连续三次端口竞争，请稍后重试")
 }
 func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (bool, error) {
 	executable, args, err := i.launchCommand(r)
@@ -316,6 +346,8 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 		return false, err
 	}
 	cmd.Stderr = cmd.Stdout
+	profile := filepath.Join(m.paths.Data, "profiles", "web")
+	bootFingerprint, fingerprintErr := profileFingerprint(profile)
 	if err = cmd.Start(); err != nil {
 		return false, err
 	}
@@ -327,11 +359,16 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 		return false, err
 	}
 	defer group.close()
-	profileUpdates, watchErr := watchProfileUpdates(ctx, filepath.Join(m.paths.Data, "profiles", "web"), 750*time.Millisecond, 3)
-	if watchErr != nil {
+	watchCtx, stopWatching := context.WithCancel(ctx)
+	defer stopWatching()
+	var profileChanges <-chan struct{}
+	if fingerprintErr == nil {
+		profileChanges, fingerprintErr = watchProfileChanges(watchCtx, profile, bootFingerprint, 750*time.Millisecond, 3)
+	}
+	if fingerprintErr != nil {
 		// Profile watching is convenience, not a startup prerequisite. Keep DSH
 		// usable and leave an actionable diagnostic in the local log.
-		m.log.Add("无法监听 Web 插件更新，将保留手动一键重启：" + watchErr.Error())
+		m.log.Add("无法监听运行环境变化；可在需要时手动重启 DSH：" + fingerprintErr.Error())
 	}
 	urls := make(chan string, 1)
 	scanned := make(chan struct{})
@@ -373,9 +410,12 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 		case <-ctx.Done():
 			stop()
 			return false, nil
-		case <-profileUpdates:
-			stop()
-			return false, errProfileUpdated
+		case _, ok := <-profileChanges:
+			if !ok {
+				profileChanges = nil
+				continue
+			}
+			m.noteProfileChange()
 		case err := <-exited:
 			if err == nil {
 				err = errors.New("DSH 服务意外退出")
@@ -407,6 +447,9 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 			m.launch = u
 			m.phase = "running"
 			m.mu.Unlock()
+			if fingerprintErr == nil {
+				m.markProfileActivated(profile, bootFingerprint)
+			}
 			m.log.Add(fmt.Sprintf("已认证并就绪，端口 %d", port))
 		}
 	}

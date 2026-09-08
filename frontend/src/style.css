@@ -209,6 +209,41 @@ p {
   font-weight: 650;
   font-size: 14px;
 }
+.activation-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 13px 14px;
+  border: 1px solid #ebc56b;
+  border-left: 4px solid #bd790d;
+  border-radius: 6px;
+  background: #fff6df;
+}
+.activation-notice > div {
+  min-width: 0;
+}
+.activation-notice strong,
+.activation-notice span {
+  display: block;
+}
+.activation-notice strong {
+  color: #80500a;
+  font-size: 13px;
+}
+.activation-notice span {
+  margin-top: 3px;
+  color: #80500a;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.activation-notice button {
+  flex: 0 0 auto;
+  border-color: #ebc56b;
+  background: #fff;
+  color: #80500a;
+}
 footer .exit-button {
   display: flex;
   align-items: center;
@@ -889,6 +924,10 @@ textarea:focus-visible {
     display: none;
   }
   .runtime-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .activation-notice {
     align-items: flex-start;
     flex-direction: column;
   }

@@ -10,24 +10,53 @@ import (
 	"time"
 )
 
-var errProfileUpdated = errors.New("DSH Web Profile 已更新")
+// profileFingerprint covers only dependency ownership files. Runtime caches and
+// Cordis patch files are intentionally excluded: they are either transient or
+// handled by Harness hot composition and must not imply a process restart.
+func profileFingerprint(profile string) ([]byte, error) {
+	digest := sha256.New()
+	for index, name := range []string{"package.json", "pnpm-lock.yaml"} {
+		contents, err := os.ReadFile(filepath.Join(profile, name))
+		if err != nil {
+			// A lockfile is optional for custom profiles; package.json is the
+			// required ownership boundary that proves this is a usable profile.
+			if index != 0 && os.IsNotExist(err) {
+				contents = nil
+			} else {
+				return nil, err
+			}
+		}
+		digest.Write([]byte(name))
+		digest.Write([]byte{0})
+		if contents == nil {
+			digest.Write([]byte{0})
+		} else {
+			digest.Write([]byte{1})
+			digest.Write(contents)
+		}
+		digest.Write([]byte{0})
+	}
+	return digest.Sum(nil), nil
+}
 
-// watchProfileUpdates reports one completed package-manifest update. DSH writes
-// .dsh-pending-updates.json while a plugin operation is in progress, so Tiny
-// never stops the process until that marker is gone and the manifest remains
-// stable for multiple polls.
-func watchProfileUpdates(ctx context.Context, profile string, interval time.Duration, stableTicks int) (<-chan struct{}, error) {
+// watchProfileChanges reports stable dependency changes for the lifetime of
+// the DSH child. It deliberately knows nothing about the writer or its batch
+// protocol. A change updates UI activation state only; the supervisor never
+// turns this notification into an implicit process restart.
+func watchProfileChanges(ctx context.Context, profile string, baseline []byte, interval time.Duration, stableTicks int) (<-chan struct{}, error) {
 	if interval <= 0 || stableTicks < 1 {
 		return nil, errors.New("无效的 Profile 监听参数")
 	}
-	manifest := filepath.Join(profile, "package.json")
-	baseline, err := fileDigest(manifest)
-	if err != nil {
-		return nil, err
+	if baseline == nil {
+		var err error
+		baseline, err = profileFingerprint(profile)
+		if err != nil {
+			return nil, err
+		}
 	}
-	updates := make(chan struct{}, 1)
+	changes := make(chan struct{}, 1)
 	go func() {
-		defer close(updates)
+		defer close(changes)
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		var candidate []byte
@@ -37,13 +66,8 @@ func watchProfileUpdates(ctx context.Context, profile string, interval time.Dura
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				current, readErr := fileDigest(manifest)
+				current, readErr := profileFingerprint(profile)
 				if readErr != nil || bytes.Equal(current, baseline) {
-					candidate = nil
-					stable = 0
-					continue
-				}
-				if _, pendingErr := os.Lstat(filepath.Join(profile, ".dsh-pending-updates.json")); pendingErr == nil || !os.IsNotExist(pendingErr) {
 					candidate = nil
 					stable = 0
 					continue
@@ -55,20 +79,17 @@ func watchProfileUpdates(ctx context.Context, profile string, interval time.Dura
 					stable++
 				}
 				if stable >= stableTicks {
-					updates <- struct{}{}
-					return
+					select {
+					case changes <- struct{}{}:
+						baseline = current
+						candidate = nil
+						stable = 0
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
-	return updates, nil
-}
-
-func fileDigest(name string) ([]byte, error) {
-	contents, err := os.ReadFile(name)
-	if err != nil {
-		return nil, err
-	}
-	digest := sha256.Sum256(contents)
-	return digest[:], nil
+	return changes, nil
 }

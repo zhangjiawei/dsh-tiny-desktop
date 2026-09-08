@@ -27,13 +27,23 @@ test("tray setting distinguishes native minimize from close-to-tray", async () =
   assert.doesNotMatch(html, /最小化或关闭时隐藏 Dock/);
 });
 
-test("overview provides a real one-click service restart", async () => {
+test("process restart is explicit, confirmed, and plugin agnostic", async () => {
   const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
   const client = await readFile(new URL("../frontend/src/main.ts", import.meta.url), "utf8");
   const backend = await readFile(new URL("../cmd/desktop/main.go", import.meta.url), "utf8");
-  assert.match(html, /id="restart-service">↻ 一键重启/);
-  assert.match(client, /action\("restart-service", async \(\) => \{[\s\S]*call\("restartService"\)/);
+  const manager = await readFile(new URL("../internal/core/manager.go", import.meta.url), "utf8");
+  const watcher = await readFile(new URL("../internal/core/profile_update.go", import.meta.url), "utf8");
+  assert.match(html, /id="restart-service">↻ 重启 DSH/);
+  assert.match(html, /id="service-dialog" class="confirm-dialog" role="alertdialog"/);
+  assert.match(html, /Tiny 不会自动中断任务/);
+  assert.match(client, /requestServiceInterruption\([\s\S]*call\("restartService"\)/);
   assert.match(backend, /case "restartService":[\s\S]*manager\.Restart\(\)/);
+  for (const id of ["stop", "apply-restart", "apply-dsh-update", "rollback-dsh", "import", "restore"])
+    assert.match(client, new RegExp(`\\$\\("${id}"\\)\\.onclick[\\s\\S]{0,220}requestServiceInterruption`));
+  assert.match(backend, /request\.Action == "restart"[\s\S]*manager\.Restart\(\)/);
+  assert.doesNotMatch(backend, /request\.Action == "restart"[\s\S]{0,120}manager\.Stop\(\)/);
+  assert.doesNotMatch(manager, /errProfileUpdated|正在由 Tiny 重启 DSH/);
+  assert.doesNotMatch(watcher, /dshmarket|dsh-market|\.dsh-pending-updates/);
 });
 
 test("reverse-proxy access stays separate from LAN binding and secrets", async () => {

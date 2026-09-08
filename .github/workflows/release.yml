@@ -48,7 +48,7 @@ jobs:
         if: matrix.goarch == 'amd64'
         run: go test -race ./internal/core
       - name: Real isolated DSH startup and shutdown
-        run: go run ./cmd/smoke --root "${{ runner.temp }}/dsh-tiny-smoke" --managed-update
+        run: go run ./cmd/smoke --root "${{ runner.temp }}/dsh-tiny-smoke" --managed-update --profile-change
       - name: Recover v0.2.12 workspace registry before DSH boot
         run: go run ./cmd/smoke --root "${{ runner.temp }}/dsh-tiny-smoke" --workspace-recovery
       - name: Recover interrupted installation without losing data
@@ -102,4 +102,6 @@ jobs:
         run: |
           cd release
           sha256sum *.zip *.tar.gz > SHA256SUMS.txt
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "DSH Tiny $TAG" --prerelease --notes-file ../docs/RELEASE_NOTES.md *.zip *.tar.gz SHA256SUMS.txt
+          release_flags=(--latest)
+          if [[ "$TAG" == *-* ]]; then release_flags=(--prerelease); fi
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "DSH Tiny $TAG" "${release_flags[@]}" --notes-file ../docs/RELEASE_NOTES.md *.zip *.tar.gz SHA256SUMS.txt

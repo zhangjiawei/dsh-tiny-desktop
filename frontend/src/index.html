@@ -42,7 +42,7 @@
           <span>退出应用</span>
         </button>
         <span class="local-dot"></span><span>本地运行 · 数据独立</span
-        ><small>v0.3.1</small>
+        ><small>v0.3.2</small>
       </footer>
     </aside>
     <main>
@@ -63,11 +63,15 @@
           <div class="actions">
             <button id="start" class="primary">启动工作空间 ↗</button
             ><button id="open">打开窗口</button
-            ><button id="restart-service">↻ 一键重启</button
+            ><button id="restart-service">↻ 重启 DSH</button
             ><button id="stop" class="quiet danger">停止服务</button>
           </div>
           <div id="error" role="alert"></div>
           <div id="port-warning" class="port-warning" role="status" hidden></div>
+          <div id="activation-notice" class="activation-notice" role="status" hidden>
+            <div><strong id="activation-title">运行环境已变化</strong><span id="activation-description">当前 DSH 继续运行，重启后生效。Tiny 不会自动中断任务。</span></div>
+            <button id="activate-restart">重启 DSH</button>
+          </div>
         </div>
         <h3 class="section-title">快捷操作</h3>
         <div class="utility">
@@ -342,6 +346,13 @@
         </div>
       </div>
       <div class="dialog-actions"><button id="cancel-quit">取消</button><button id="confirm-quit" class="danger-solid">确认退出</button></div>
+    </dialog>
+    <dialog id="service-dialog" class="confirm-dialog" role="alertdialog" aria-labelledby="service-dialog-title" aria-describedby="service-dialog-description">
+      <div class="confirm-content">
+        <span class="confirm-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8v5m0 3.2v.1M10.4 4.6 3.7 16.2A2 2 0 0 0 5.4 19h13.2a2 2 0 0 0 1.7-2.8L13.6 4.6a1.8 1.8 0 0 0-3.2 0Z"/></svg></span>
+        <div><h2 id="service-dialog-title">重启 DSH？</h2><p id="service-dialog-description">这会停止当前 DSH 进程，正在运行的任务将中断。</p></div>
+      </div>
+      <div class="dialog-actions"><button id="cancel-service-action">取消</button><button id="confirm-service-action" class="danger-solid">确认重启</button></div>
     </dialog>
     <script type="module" src="/main.js"></script>
   </body>

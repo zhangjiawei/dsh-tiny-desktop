@@ -154,13 +154,14 @@ try {
   assert.ok(running.warning.includes(String(actualPort)) && running.warning.includes('3080'));
   console.log('PASS: default pnpm command and domestic mirror; real occupied-port banner uses actual random service port');
   console.log("PASS: native Start button, authenticated DSH readiness, port and logs");
-  // The overview restart is one operation: it must leave Running, start the
-  // owned service again and recover authenticated readiness without a manual
-  // Stop + Start sequence.
+  // Process restart is deliberately guarded because it can interrupt agents.
+  // Exercise the native confirmation before checking the owned-tree lifecycle.
   await evaluate(`document.querySelector('#restart-service').click()`);
+  await until(async()=>await evaluate(`document.querySelector('#service-dialog').open===true`) ? true : null, "restart confirmation opened");
+  await evaluate(`document.querySelector('#confirm-service-action').click()`);
   await until(async()=>{const s=await status();return s.phase!=="Running" ? s : null;}, "one-click restart began");
   running=await until(async()=>{const s=await status();return s.phase==="Running" && s.logs ? s : null;}, "one-click restart completed",180000);
-  console.log("PASS: overview one-click restart stops, starts and restores authenticated readiness");
+  console.log("PASS: confirmed overview restart stops, starts and restores authenticated readiness");
   // Hash navigation must keep working. Save runtime settings without stopping.
   await evaluate(`location.hash='#settings';document.querySelector('#port-input').value='43081';document.querySelector('#settings-form').requestSubmit()`);
   await until(async()=>{const s=await status();return s.pending?.includes("pending") && s.phase==="Running" && s.port===running.port;}, "save without interrupting running service");

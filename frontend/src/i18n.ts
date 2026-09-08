@@ -249,6 +249,37 @@ const en: Record<string, string> = {
   已在默认浏览器中打开: "Opened in the default browser.",
   正在应用设置并重启: "Applying settings and restarting…",
   "正在重新启动 DSH…": "Restarting DSH…",
+  "正在停止 DSH…": "Stopping DSH…",
+  "运行环境已变化": "Runtime environment changed",
+  "当前 DSH 继续运行，重启后生效。Tiny 不会自动中断任务。":
+    "The current DSH process keeps running. Changes take effect after restart; Tiny will not interrupt tasks automatically.",
+  "下次成功启动 DSH 后生效。": "Changes take effect after DSH starts successfully.",
+  "重启 DSH？": "Restart DSH?",
+  "重启会停止当前 DSH 进程，正在运行的任务将中断。Tiny 无法可靠判断任务是否空闲，请确认后继续。":
+    "Restarting stops the current DSH process and interrupts running tasks. Tiny cannot reliably determine whether tasks are idle; confirm before continuing.",
+  "确认重启": "Restart DSH",
+  "停止 DSH？": "Stop DSH?",
+  "停止服务会结束当前 DSH 进程，正在运行的任务将中断。":
+    "Stopping ends the current DSH process and interrupts running tasks.",
+  "确认停止": "Stop DSH",
+  "应用设置并重启 DSH？": "Apply settings and restart DSH?",
+  "应用运行设置需要停止当前 DSH 进程，正在运行的任务将中断。":
+    "Applying runtime settings stops the current DSH process and interrupts running tasks.",
+  "升级 DSH？": "Upgrade DSH?",
+  "升级会停止当前 DSH 进程并验证新版本，正在运行的任务将中断。失败时会自动回退。":
+    "Upgrading stops the current DSH process to validate the new version and interrupts running tasks. Failures roll back automatically.",
+  "确认升级": "Upgrade DSH",
+  "回退 DSH？": "Roll back DSH?",
+  "回退会停止当前 DSH 进程，正在运行的任务将中断。当前数据会先建立恢复点。":
+    "Rolling back stops the current DSH process and interrupts running tasks. Tiny creates a recovery point first.",
+  "确认回退": "Roll back DSH",
+  "导入 DSH 数据？": "Import DSH data?",
+  "导入期间需要停止当前 DSH 进程，正在运行的任务将中断；完成或失败后会恢复服务。":
+    "Importing stops the current DSH process and interrupts running tasks; the service is restored after success or failure.",
+  "恢复导入前的数据？": "Restore pre-import data?",
+  "恢复备份需要停止当前 DSH 进程，正在运行的任务将中断；完成或失败后会恢复服务。":
+    "Restoring the backup stops the current DSH process and interrupts running tasks; the service is restored after success or failure.",
+  "确认恢复": "Restore backup",
 };
 export function t(text: string) {
   return language === "en" ? en[text] || text : text;
@@ -273,7 +304,7 @@ export function setLanguage(choice: string, system: string) {
     const node = walker.currentNode;
     if (
       node.parentElement?.closest(
-        "#phase,#headline,#error,#log-output,#notice,#preview,#data-path,#port,#share-title,#share-warning,#dsh-current,#dsh-target,#dsh-previous,#dsh-update-status,#runtime-mode-badge",
+        "#phase,#headline,#error,#log-output,#notice,#preview,#data-path,#port,#share-title,#share-warning,#dsh-current,#dsh-target,#dsh-previous,#dsh-update-status,#runtime-mode-badge,#activation-title,#activation-description,#service-dialog-title,#service-dialog-description,#confirm-service-action",
       )
     )
       continue;

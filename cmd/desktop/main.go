@@ -18,7 +18,7 @@ import (
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
 )
 
-var version = "0.3.1"
+var version = "0.3.2"
 
 // QA builds may override this via -ldflags to test in an isolated app instance.
 var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
@@ -168,16 +168,15 @@ func main() {
 						if request.Action == "appearance" {
 							e = manager.ConfigureAppearance(s)
 						} else {
-							// Validate before stopping: a typo must not interrupt work.
+							// Validate before restart: a typo must not interrupt work.
 							e = s.Validate()
 							if e == nil {
-								if request.Action == "restart" {
-									manager.Stop()
-								}
 								e = manager.Configure(s)
 							}
 							if e == nil && request.Action == "restart" {
-								e = manager.Start()
+								// All user-requested process restarts cross the same
+								// supervisor boundary after the control page confirms risk.
+								e = manager.Restart()
 							}
 						}
 						if e == nil {

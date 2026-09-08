@@ -3,7 +3,8 @@
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 const tag=process.argv[2], repo='zhangjiawei/dsh-tiny-desktop';
-if(!/^v\d+\.\d+\.\d+$/.test(tag || ''))throw Error('Provide a release tag, for example v0.2.4');
+if(!/^v\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(tag || ''))throw Error('Provide a release tag, for example v0.3.2 or v0.3.3-rc.1');
+const expectedPrerelease=tag.includes('-');
 const dir=new URL('../work/release-'+tag+'-verify/',import.meta.url);
 const targets=['macos-amd64.zip','macos-arm64.zip','windows-amd64.zip','windows-arm64.zip','linux-amd64.tar.gz','linux-arm64.tar.gz'].map(s=>'dsh-tiny-desktop-'+tag.slice(1)+'-'+s);
 async function download(url){
@@ -14,7 +15,7 @@ async function download(url){
 const r=await fetch('https://api.github.com/repos/'+repo+'/releases/tags/'+tag);
 if(!r.ok)throw Error('Release HTTP '+r.status);
 const release=await r.json();
-if(release.draft || !release.prerelease || release.tag_name!==tag)throw Error('Unexpected release state');
+if(release.draft || release.prerelease!==expectedPrerelease || release.tag_name!==tag)throw Error('Unexpected release state');
 const names=release.assets.map(a=>a.name).sort();
 if(JSON.stringify(names)!==JSON.stringify([...targets,'SHA256SUMS.txt'].sort()))throw Error('Unexpected asset set');
 await mkdir(dir,{recursive:true});
@@ -35,4 +36,4 @@ for(const name of targets){
   await writeFile(new URL(name,dir),body);
   console.log('PASS',name,body.length,'bytes',hash);
 }
-console.log('PASS public prerelease, six archives and SHA256SUMS:',release.html_url);
+console.log(`PASS public ${expectedPrerelease?'prerelease':'stable release'}, six archives and SHA256SUMS:`,release.html_url);

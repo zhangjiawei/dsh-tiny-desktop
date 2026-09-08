@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
@@ -20,6 +21,7 @@ func main() {
 	lan := flag.Bool("lan", false, "also verify opt-in LAN authentication")
 	workspaceRecovery := flag.Bool("workspace-recovery", false, "seed and verify the v0.2.12 workspace registry recovery")
 	managedUpdate := flag.Bool("managed-update", false, "exercise staged managed update and readiness transaction")
+	profileChange := flag.Bool("profile-change", false, "verify profile changes wait for an explicit process restart")
 	command := flag.String("command", core.DefaultCommand, "launch command to exercise (defaults to production pnpm command)")
 	flag.Parse()
 	commandProvided := false
@@ -93,6 +95,9 @@ func main() {
 				if err == nil && *managedUpdate {
 					err = exerciseManagedUpdate(m, p)
 				}
+				if err == nil && *profileChange {
+					err = exerciseProfileActivation(m, p)
+				}
 				for _, line := range m.Snapshot().Logs[last:] {
 					fmt.Println(line.Time, line.Text)
 				}
@@ -105,6 +110,9 @@ func main() {
 				if *managedUpdate {
 					fmt.Println("PASS: staged managed update, rollback round-trip and authenticated restart")
 				}
+				if *profileChange {
+					fmt.Println("PASS: profile change stayed pending until an explicit authenticated restart")
+				}
 				if *lan {
 					fmt.Println("PASS: LAN authority-bound authentication")
 				}
@@ -112,6 +120,72 @@ func main() {
 				return
 			}
 		}
+	}
+}
+
+func exerciseProfileActivation(manager *core.Manager, paths core.Paths) error {
+	before := manager.Snapshot()
+	launch, err := manager.LaunchURL()
+	if err != nil {
+		return err
+	}
+	manifest := filepath.Join(paths.Data, "profiles", "web", "package.json")
+	contents, err := os.ReadFile(manifest)
+	if err != nil {
+		return err
+	}
+	var document map[string]any
+	if err = json.Unmarshal(contents, &document); err != nil {
+		return err
+	}
+	// This field is deliberately unrelated to any plugin manager. The smoke
+	// proves that an arbitrary dependency-owner write cannot kill the child.
+	document["tinySmokeProfileGeneration"] = time.Now().UTC().Format(time.RFC3339Nano)
+	contents, err = json.MarshalIndent(document, "", "  ")
+	if err != nil {
+		return err
+	}
+	contents = append(contents, '\n')
+	if err = core.AtomicWrite(manifest, contents, 0600); err != nil {
+		return err
+	}
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		snapshot := manager.Snapshot()
+		currentLaunch, launchErr := manager.LaunchURL()
+		if snapshot.Phase != "running" || snapshot.Port != before.Port || launchErr != nil || currentLaunch != launch {
+			return errors.New("profile change interrupted or replaced the running DSH process")
+		}
+		if snapshot.ActivationPending {
+			break
+		}
+		if time.Now().After(deadline) {
+			return errors.New("profile change did not become pending activation")
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	verifyCtx, verifyCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	err = core.VerifyLaunchURL(verifyCtx, launch)
+	verifyCancel()
+	if err != nil {
+		return fmt.Errorf("running DSH became unavailable after profile change: %w", err)
+	}
+	if err = manager.Restart(); err != nil {
+		return err
+	}
+	deadline = time.Now().Add(3 * time.Minute)
+	for {
+		snapshot := manager.Snapshot()
+		if snapshot.Phase == "error" {
+			return errors.New(snapshot.Error)
+		}
+		if snapshot.Phase == "running" && !snapshot.ActivationPending {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return errors.New("explicit restart did not activate the current profile generation")
+		}
+		time.Sleep(250 * time.Millisecond)
 	}
 }
 
