@@ -83,6 +83,12 @@ const en: Record<string, string> = {
   "自动启动 DSH": "Start DSH automatically",
   "打开应用时自动准备并启动工作空间。":
     "Prepare and start the workspace when the app opens.",
+  "登录时启动 DSH Tiny": "Start DSH Tiny at login",
+  "系统登录后自动打开 Tiny，并按“自动启动 DSH”设置启动工作空间。":
+    "Open Tiny after login and start the workspace according to the “Start DSH automatically” setting.",
+  登录后隐藏窗口: "Hide windows after login",
+  "仅开机启动时生效；从 macOS 菜单栏或系统托盘打开窗口。":
+    "Only applies to login launch; use the macOS menu bar or system tray to show the window.",
   "支持带引号的参数，不执行 Shell 管道或变量。端口与认证由外壳管理。":
     "Quoted arguments are supported, not shell pipes or variables. The app manages the port and authentication.",
   "允许 1–120 分钟准备依赖。": "Allow 1–120 minutes to prepare dependencies.",

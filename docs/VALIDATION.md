@@ -1,5 +1,15 @@
 # 验证记录
 
+## v0.3.4 登录启动与隐藏窗口
+
+- 默认值、旧设置迁移和运行中保存回归确认“登录时启动”与“登录后隐藏窗口”均默认开启，外观设置保存不停止 DSH，也不产生待重启状态。前端门禁覆盖两个开关、从属禁用状态、`appearance` 通道和不调用进程重启。
+- 本地 `go test -count=1 ./...`、`go test -race -count=1 ./internal/core`、`go vet ./...`、`go mod tidy -diff`、前端 11 项测试和 TypeScript/前端构建通过。Windows x64/ARM64 桌面程序交叉编译、Linux x64/ARM64 核心包交叉编译通过；Linux 原生 GUI 需由发布 CI 验证。
+- macOS Intel 隔离原生候选使用独立单实例 ID、临时 `HOME` 和关闭 DSH 自动启动的临时 Profile。普通启动显示设置窗口，页面版本为 0.3.4，两个登录开关均默认开启且布局无溢出；测试 LaunchAgent 权限为 0644，程序路径正确转义并包含 `--hidden`。
+- 同一候选以 `--hidden` 启动后，辅助功能状态为 `visible=false` 且窗口数为 0，同时保留独立 status menu。点击菜单栏图标后恢复一个前台设置窗口；再次隐藏启动后执行一次普通启动，第二实例正常唤醒原进程。测试期间正式 v0.3.3 DSH PID 35405 与 3080 监听保持不变，没有下载第二套运行环境。
+- `0.3.4` ad-hoc 签名 Intel 包的版本、Mach-O x86_64 架构、严格签名和 ZIP 完整性检查通过后替换本机 App。普通启动复用现有 Runtime/Profile 并在 3080 认证就绪；真实 LaunchAgent 指向 `/Applications/DSH Tiny.app/Contents/MacOS/dsh-tiny`、包含 `--hidden` 且权限为 0644。
+- 安装后的真实 App 以 `--hidden` 启动时仍完成 DSH 认证，原生状态为 `visible=false`、0 个窗口和 1 个 status menu item；点击菜单栏图标恢复一个 DSH 工作区窗口，App/DSH PID 均保持不变。设置最终明确保存三个开启值；替换前后 Profile 均为 21732 个文件、165 个会话文件。
+- 隔离 App、截图、临时 HOME/Profile、旧版回退副本、四个交叉编译文件及工程 `dist` / `bin` 构建产物均已删除，约 112 MiB 临时资源已释放；正式 v0.3.4 App、真实独立数据和运行中的 DSH 保留。
+
 ## v0.3.3 内嵌诊断与跨平台命令发现
 
 - 回归测试先稳定复现四个缺口：私有 Unix Node 缺少 `npm`/`npx` 入口、GUI 会话缺少常见 CLI 目录、工作区没有开发者工具入口、macOS/Windows 正式包的 `production` 标签会把 `OpenDevTools` 编译为空操作。

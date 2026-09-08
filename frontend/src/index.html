@@ -42,7 +42,7 @@
           <span>退出应用</span>
         </button>
         <span class="local-dot"></span><span>本地运行 · 数据独立</span
-        ><small>v0.3.3</small>
+        ><small>v0.3.4</small>
       </footer>
     </aside>
     <main>
@@ -209,6 +209,20 @@
                   >打开应用时自动准备并启动工作空间。</small
                 ></span
               ><input id="autostart" type="checkbox"
+            /></label>
+            <label class="toggle-row" for="launch-at-login"
+              ><span
+                >登录时启动 DSH Tiny<small
+                  >系统登录后自动打开 Tiny，并按“自动启动 DSH”设置启动工作空间。</small
+                ></span
+              ><input id="launch-at-login" type="checkbox"
+            /></label>
+            <label class="toggle-row" for="launch-hidden"
+              ><span
+                >登录后隐藏窗口<small
+                  >仅开机启动时生效；从 macOS 菜单栏或系统托盘打开窗口。</small
+                ></span
+              ><input id="launch-hidden" type="checkbox"
             /></label>
             <div class="field-grid">
               <div class="field">

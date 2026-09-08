@@ -52,6 +52,8 @@ type Settings struct {
 	HideOnClose     bool   `json:"hideOnClose"`
 	TrayOnly        bool   `json:"trayOnly"`
 	AutoStart       bool   `json:"autoStart"`
+	LaunchAtLogin   bool   `json:"launchAtLogin"`
+	LaunchHidden    bool   `json:"launchHidden"`
 	AlwaysOnTop     bool   `json:"alwaysOnTop"`
 	Language        string `json:"language"`
 	RuntimeMode     string `json:"runtimeMode"`
@@ -67,7 +69,7 @@ type Settings struct {
 }
 
 func Defaults() Settings {
-	return Settings{Port: 3080, LAN: true, TrayOnly: true, HideOnClose: true, AutoStart: true, Language: "system", RuntimeMode: RuntimeModeManaged, DSHChannel: DSHChannelRecommended, FixedDSHVersion: DSHVersion, Command: DefaultCommand, Registry: DefaultRegistry, StartupMinutes: 60, Width: 1280, Height: 840}
+	return Settings{Port: 3080, LAN: true, TrayOnly: true, HideOnClose: true, AutoStart: true, LaunchAtLogin: true, LaunchHidden: true, Language: "system", RuntimeMode: RuntimeModeManaged, DSHChannel: DSHChannelRecommended, FixedDSHVersion: DSHVersion, Command: DefaultCommand, Registry: DefaultRegistry, StartupMinutes: 60, Width: 1280, Height: 840}
 }
 func (s Settings) Validate() error {
 	if s.Port < 1024 || s.Port > 65535 {

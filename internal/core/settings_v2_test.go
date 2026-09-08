@@ -93,6 +93,15 @@ func TestSettingsV1UpgradeAndLiveAppearance(t *testing.T) {
 	}
 }
 
+func TestDefaultsEnableLaunchAtLogin(t *testing.T) {
+	if !Defaults().LaunchAtLogin {
+		t.Fatal("login launch should be enabled by default")
+	}
+	if !Defaults().LaunchHidden {
+		t.Fatal("login launch should remain hidden by default")
+	}
+}
+
 func TestSaveWhileRunningNeverStopsService(t *testing.T) {
 	p, _ := NewPaths(t.TempDir())
 	s := Defaults()
@@ -116,12 +125,14 @@ func TestSaveWhileRunningNeverStopsService(t *testing.T) {
 	}
 	s.Port = 3080
 	s.AutoStart = false
+	s.LaunchAtLogin = false
+	s.LaunchHidden = true
 	s.DSHChannel = DSHChannelPreview
 	if err = m.Configure(s); err != nil {
 		t.Fatal(err)
 	}
 	if m.Snapshot().RestartRequired {
-		t.Fatal("appearance/auto-start/update-policy changes require no service restart")
+		t.Fatal("appearance/auto-start/login/update-policy changes require no service restart")
 	}
 	s.Port = 0
 	if m.Configure(s) == nil || m.Snapshot().Settings.Port != 3080 {
@@ -142,6 +153,18 @@ func TestFreshToggleDefaultsPreserveExistingChoices(t *testing.T) {
 	got, err := p.LoadSettings()
 	if err != nil || got != s {
 		t.Fatal("upgrade overwrote explicit user choices")
+	}
+}
+
+func TestLegacySettingsGainEnabledLoginDefaults(t *testing.T) {
+	p, _ := NewPaths(t.TempDir())
+	legacy := []byte(`{"port":3080,"lan":true,"hideOnClose":true,"trayOnly":true,"autoStart":true,"alwaysOnTop":false,"language":"system","runtimeMode":"managed","dshChannel":"recommended","fixedDshVersion":"0.1.2-rc.1","command":"dsh web","registry":"https://registry.npmmirror.com","startupMinutes":60,"width":1280,"height":840}`)
+	if err := AtomicWrite(filepath.Join(p.Root, "settings.json"), legacy, 0600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := p.LoadSettings()
+	if err != nil || !got.LaunchAtLogin || !got.LaunchHidden {
+		t.Fatalf("legacy settings did not inherit enabled login defaults: %+v, %v", got, err)
 	}
 }
 func TestLatestPluginsResolveAndReceiptFreezesVersions(t *testing.T) {

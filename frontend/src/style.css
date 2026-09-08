@@ -534,6 +534,13 @@ small {
   margin-top: 4px;
   max-width: 510px;
 }
+.toggle-row.disabled > span {
+  opacity: 0.55;
+}
+.toggle-row input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
 .setting-row select {
   width: 162px;
   flex-shrink: 0;

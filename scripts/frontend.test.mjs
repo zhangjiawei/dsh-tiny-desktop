@@ -27,6 +27,21 @@ test("tray setting distinguishes native minimize from close-to-tray", async () =
   assert.doesNotMatch(html, /最小化或关闭时隐藏 Dock/);
 });
 
+test("login startup defaults hidden and updates without restarting DSH", async () => {
+  const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
+  const client = await readFile(new URL("../frontend/src/main.ts", import.meta.url), "utf8");
+  const backend = await readFile(new URL("../cmd/desktop/main.go", import.meta.url), "utf8");
+  const config = await readFile(new URL("../internal/core/config.go", import.meta.url), "utf8");
+  for (const id of ["launch-at-login", "launch-hidden"])
+    assert.match(html, new RegExp(`id="${id}" type="checkbox"`));
+  assert.match(config, /LaunchAtLogin:\s*true, LaunchHidden:\s*true/);
+  assert.match(client, /launchHidden\.disabled = !s\.settings\.launchAtLogin/);
+  assert.match(client, /\["language", "tray-only", "hide", "ontop", "launch-at-login", "launch-hidden"\]/);
+  assert.match(client, /call\("appearance", settingsValues\(\)\)/);
+  assert.match(backend, /loginChanged :=[\s\S]*syncLaunchAtLogin[\s\S]*manager\.ConfigureAppearance/);
+  assert.doesNotMatch(backend, /request\.Action == "appearance"[\s\S]{0,800}manager\.Restart\(\)/);
+});
+
 test("process restart is explicit, confirmed, and plugin agnostic", async () => {
   const html = await readFile(new URL("../frontend/src/index.html", import.meta.url), "utf8");
   const client = await readFile(new URL("../frontend/src/main.ts", import.meta.url), "utf8");

@@ -15,6 +15,8 @@ type Settings = {
   hideOnClose: boolean;
   trayOnly: boolean;
   autoStart: boolean;
+  launchAtLogin: boolean;
+  launchHidden: boolean;
   alwaysOnTop: boolean;
   language: string;
   runtimeMode: "managed" | "custom";
@@ -194,6 +196,12 @@ function render(s: State) {
   const publicConfigured = Boolean(s.settings.publicURL);
   $("copy-public").hidden = !publicConfigured;
   $("share-public").hidden = !publicConfigured;
+  const launchAtLogin = $<HTMLInputElement>("launch-at-login");
+  const launchHidden = $<HTMLInputElement>("launch-hidden");
+  launchAtLogin.checked = s.settings.launchAtLogin;
+  launchHidden.checked = s.settings.launchHidden;
+  launchHidden.disabled = !s.settings.launchAtLogin;
+  launchHidden.closest(".toggle-row")?.classList.toggle("disabled", launchHidden.disabled);
   if (first) {
     first = false;
     $<HTMLInputElement>("port-input").value = String(s.settings.port);
@@ -335,6 +343,8 @@ function settingsValues(): Settings {
     port: Number($<HTMLInputElement>("port-input").value),
     proxy: $<HTMLInputElement>("proxy").value,
     autoStart: $<HTMLInputElement>("autostart").checked,
+    launchAtLogin: $<HTMLInputElement>("launch-at-login").checked,
+    launchHidden: $<HTMLInputElement>("launch-hidden").checked,
     hideOnClose: $<HTMLInputElement>("hide").checked,
     alwaysOnTop: $<HTMLInputElement>("ontop").checked,
     lan: $<HTMLInputElement>("lan").checked,
@@ -441,7 +451,7 @@ action("confirm-service-action", async () => {
   $<HTMLDialogElement>("service-dialog").close();
   if (run) await run();
 });
-for (const id of ["language", "tray-only", "hide", "ontop"]) {
+for (const id of ["language", "tray-only", "hide", "ontop", "launch-at-login", "launch-hidden"]) {
   $(id).onchange = async () => {
     if (!state) return;
     try {

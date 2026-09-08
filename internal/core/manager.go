@@ -99,6 +99,8 @@ func (m *Manager) ConfigureAppearance(s Settings) error {
 	current.Language = s.Language
 	current.TrayOnly = s.TrayOnly
 	current.HideOnClose = s.HideOnClose
+	current.LaunchAtLogin = s.LaunchAtLogin
+	current.LaunchHidden = s.LaunchHidden
 	current.AlwaysOnTop = s.AlwaysOnTop
 	if err := m.paths.SaveSettings(current); err != nil {
 		return err

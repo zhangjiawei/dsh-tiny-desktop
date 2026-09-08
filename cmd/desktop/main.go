@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -18,7 +19,7 @@ import (
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
 )
 
-var version = "0.3.3"
+var version = "0.3.4"
 
 // QA builds may override this via -ldflags to test in an isolated app instance.
 var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
@@ -40,17 +41,26 @@ func main() {
 		settings = core.Defaults()
 		settings.AutoStart = false
 	}
+	var startHidden atomic.Bool
+	startHidden.Store(hiddenLoginLaunch(os.Args[1:]))
 	manager := core.NewManager(p, settings)
 	if settingsError != nil {
 		manager.ReportError(settingsError)
 	}
 	var app *application.App
 	var control, workspace *application.WebviewWindow
+	// Assigned after application.New so the trusted UI bridge can update the
+	// native login registration without exposing it to the DSH workspace.
+	var syncLaunchAtLogin func(bool, bool) error
 	var iconMu sync.Mutex
 	iconCleanup := func() {}
 	dockIcon := dock.New() // Used from Go only; never exposed to the DSH window.
 	var applyAppearance = func() {}
 	restore := func(w *application.WebviewWindow) {
+		if w == nil {
+			return
+		}
+		startHidden.Store(false)
 		if runtime.GOOS == "darwin" {
 			dockIcon.ShowAppIcon()
 		}
@@ -78,10 +88,14 @@ func main() {
 			showControl()
 		}
 	}
+	macPolicy := application.ActivationPolicyRegular
+	if startHidden.Load() {
+		macPolicy = application.ActivationPolicyAccessory
+	}
 	app = application.New(application.Options{Name: "DSH Tiny", Description: "An independent desktop home for DeepSeek Harness", Icon: appIcon, Assets: application.AssetOptions{Handler: http.FileServer(http.FS(assets))},
 		Windows:        desktopWindowsOptions(),
 		SingleInstance: &application.SingleInstanceOptions{UniqueID: instanceID, OnSecondInstanceLaunch: func(application.SecondInstanceData) { showControl() }},
-		Mac:            application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: false},
+		Mac:            application.MacOptions{ActivationPolicy: macPolicy, ApplicationShouldTerminateAfterLastWindowClosed: false},
 		RawMessageHandler: func(w application.Window, message string, origin *application.OriginInfo) {
 			// Window identity alone is insufficient: a trusted window could navigate to
 			// a hostile document. Require both the local origin and the top-level frame.
@@ -166,7 +180,19 @@ func main() {
 					e = json.Unmarshal(request.Data, &s)
 					if e == nil {
 						if request.Action == "appearance" {
-							e = manager.ConfigureAppearance(s)
+							previous := manager.Snapshot().Settings
+							loginChanged := previous.LaunchAtLogin != s.LaunchAtLogin || previous.LaunchHidden != s.LaunchHidden
+							if loginChanged {
+								e = syncLaunchAtLogin(s.LaunchAtLogin, s.LaunchHidden)
+							}
+							if e == nil {
+								e = manager.ConfigureAppearance(s)
+							}
+							if e != nil && loginChanged {
+								// Keep the OS registration and persisted setting aligned when
+								// an atomic settings write fails after registration succeeds.
+								_ = syncLaunchAtLogin(previous.LaunchAtLogin, previous.LaunchHidden)
+							}
 						} else {
 							// Validate before restart: a typo must not interrupt work.
 							e = s.Validate()
@@ -229,7 +255,18 @@ func main() {
 				}
 			}()
 		}})
-	control = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "control", Title: "DSH Tiny · 设置", Width: 1000, Height: 800, MinWidth: 820, MinHeight: 680, URL: "/", Linux: application.LinuxWindow{Icon: settingsIcon}, BackgroundColour: application.NewRGB(245, 246, 245)})
+	syncLaunchAtLogin = func(enabled, hidden bool) error {
+		if enabled {
+			return enableLoginLaunch(app, hidden)
+		}
+		return disableLoginLaunch(app)
+	}
+	if err := syncLaunchAtLogin(settings.LaunchAtLogin, settings.LaunchHidden); err != nil {
+		// A login-registration failure must not prevent DSH from starting. The
+		// error is kept in the process log for diagnosis and retry from Settings.
+		log.Printf("登录启动设置失败: %s", core.Redact(err.Error()))
+	}
+	control = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "control", Title: "DSH Tiny · 设置", Width: 1000, Height: 800, MinWidth: 820, MinHeight: 680, Hidden: startHidden.Load(), URL: "/", Linux: application.LinuxWindow{Icon: settingsIcon}, BackgroundColour: application.NewRGB(245, 246, 245)})
 	// Start at a neutral document, not the wails:// control origin. WKWebView
 	// otherwise withholds DSH's SameSite=Strict cookie on the first redirect.
 	workspace = app.Window.NewWithOptions(application.WebviewWindowOptions{
@@ -339,7 +376,7 @@ func main() {
 		}
 		control.SetTitle(title)
 		workspace.SetAlwaysOnTop(s.Settings.AlwaysOnTop)
-		if !s.Settings.TrayOnly && runtime.GOOS == "darwin" {
+		if !s.Settings.TrayOnly && runtime.GOOS == "darwin" && !startHidden.Load() {
 			dockIcon.ShowAppIcon()
 		}
 	}
@@ -387,8 +424,11 @@ func main() {
 					appearanceReady = true
 				}
 				s := manager.Snapshot()
-				if s.Phase == "running" && last != "running" {
+				if s.Phase == "running" && last != "running" && !startHidden.Load() {
 					showWorkspace()
+				}
+				if s.Phase == "running" && last != "running" {
+					startHidden.Store(false)
 				}
 				last = s.Phase
 			}
@@ -403,4 +443,13 @@ func main() {
 	iconMu.Lock()
 	iconCleanup()
 	iconMu.Unlock()
+}
+
+func hiddenLoginLaunch(args []string) bool {
+	for _, arg := range args {
+		if arg == "--hidden" {
+			return true
+		}
+	}
+	return false
 }
