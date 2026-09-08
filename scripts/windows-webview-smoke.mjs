@@ -99,6 +99,11 @@ const status = () => evaluate(`({phase:document.querySelector('#phase')?.textCon
   warning:document.querySelector('#port-warning')?.textContent,
   warningHidden:document.querySelector('#port-warning')?.hidden,
   pending:document.querySelector('#settings-status')?.textContent})`);
+async function confirmServiceAction(buttonSelector, label) {
+  await evaluate(`document.querySelector(${JSON.stringify(buttonSelector)}).click()`);
+  await until(async()=>await evaluate(`document.querySelector('#service-dialog').open===true`) ? true : null, `${label} confirmation opened`);
+  await evaluate(`document.querySelector('#confirm-service-action').click()`);
+}
 // Deliberately occupy the requested port: the banner must describe the real
 // listening service, not merely a guessed candidate or a pending preference.
 const occupied = createServer(socket => socket.destroy());
@@ -156,9 +161,7 @@ try {
   console.log("PASS: native Start button, authenticated DSH readiness, port and logs");
   // Process restart is deliberately guarded because it can interrupt agents.
   // Exercise the native confirmation before checking the owned-tree lifecycle.
-  await evaluate(`document.querySelector('#restart-service').click()`);
-  await until(async()=>await evaluate(`document.querySelector('#service-dialog').open===true`) ? true : null, "restart confirmation opened");
-  await evaluate(`document.querySelector('#confirm-service-action').click()`);
+  await confirmServiceAction('#restart-service', 'restart');
   await until(async()=>{const s=await status();return s.phase!=="Running" ? s : null;}, "one-click restart began");
   running=await until(async()=>{const s=await status();return s.phase==="Running" && s.logs ? s : null;}, "one-click restart completed",180000);
   console.log("PASS: confirmed overview restart stops, starts and restores authenticated readiness");
@@ -172,7 +175,8 @@ try {
   await until(()=>evaluate(`document.querySelector('#notice')?.textContent==='Workspace opened.'`),"open workspace response");
   await evaluate(`document.querySelector('#share').click()`);
   await until(()=>evaluate(`document.querySelector('#share-dialog')?.open===true`),"authenticated QR response");
-  await evaluate(`document.querySelector('#close-share').click();document.querySelector('#stop').click()`);
+  await evaluate(`document.querySelector('#close-share').click()`);
+  await confirmServiceAction('#stop', 'stop');
   await until(async()=>(await status()).phase==="Stopped","native Stop button");
   // Verify the next start actually applies the saved port, then stop cleanly.
   await evaluate(`document.querySelector('#start').click()`);
@@ -195,7 +199,12 @@ try {
   console.log('PASS: cancel quit preserves DSH; Settings Quit exits application and releases DSH service port');
 } finally {
   if (child.exitCode===null && ws?.readyState===WebSocket.OPEN) {
-    try {await evaluate(`document.querySelector('#stop')?.click()`);await until(async()=>(await status()).phase==="Stopped","cleanup",30000);} catch {}
+    try {
+      if ((await status()).phase!=="Stopped") {
+        await confirmServiceAction('#stop', 'cleanup stop');
+        await until(async()=>(await status()).phase==="Stopped","cleanup",30000);
+      }
+    } catch {}
     ws.close();
   }
   // This process tree belongs exclusively to this test; never kill by image name.
