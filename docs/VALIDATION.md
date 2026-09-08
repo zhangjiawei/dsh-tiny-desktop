@@ -14,6 +14,9 @@
 - 安装后的原生工作区完成无发送的“粘贴、全选、复制、清空”往返并恢复原剪贴板；右键菜单实际显示 Back、Reload 与 Inspect Element，开发者工具以内嵌 Inspector 打开。最小化保留 macOS 普通 Dock 模式；关闭后切换为菜单栏模式，点击菜单栏图标恢复，App/DSH PID 与 3080 监听全程不变。
 - 本次真实启动日志显示“已认证并就绪”；启动 URL 的一条 token 记录为字面量 `<REDACTED>`，原始 token 计数为 0。界面测试产生的截图、HTTP 响应、旧 App 临时备份和构建目录在发布收尾时删除。
 - 首次 main 工作流 `34197355054` 的单元测试、竞态、真实 DSH、局域网认证、自定义 dlx 与 PTY 均通过，但 Linux x64/ARM64 在正式打包阶段共同失败：Wails beta.16/17 的 Linux devtools 文件只允许 `!production`，与其他平台的 `production,devtools` 不一致。打包器现对 Linux 保持 production，对 macOS/Windows 保持 `production,devtools`；回归同时要求 Windows 原生 smoke 保留该标签。
+- 最终 main 工作流 [`34200537856`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34200537856) 在提交 `68bf8ff` 上六个平台全部成功；Windows x64/ARM64 均通过真实独立 DSH、插件、PTY、正式 GUI 打包与原生 WebView2 控制桥，Linux x64/ARM64 的 production 包也成功生成。
+- 正式标签工作流 [`34203287892`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34203287892) 的六个平台 build 与 release job [`101993356878`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34203287892/job/101993356878) 全部成功，创建非 Draft、非 Pre-release 的公开正式版 [`v0.3.3`](https://github.com/zhangjiawei/dsh-tiny-desktop/releases/tag/v0.3.3)。Windows x64 job `101986842113` 与 Windows ARM64 job `101986842335` 均通过最终发布源码的原生门禁。
+- 发布后从公开 Release 重新下载六个平台归档及 `SHA256SUMS.txt`，六项 SHA-256 与压缩完整性全部匹配。解包确认 macOS Mach-O x86_64/arm64、Windows GUI PE x86-64/AArch64、Linux ELF x86-64/AArch64；两个 macOS 包版本均为 0.3.3，并通过 ad-hoc `codesign --verify --deep --strict`。
 
 ## v0.3.2 通用 Profile 激活与谨慎重启
 
