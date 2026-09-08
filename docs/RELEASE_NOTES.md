@@ -5,8 +5,9 @@ v0.3.3 正式版：保留内嵌 DSH 工作区，并补齐桌面会话中的通�
 - DSH 子进程的 `PATH` 现在依次包含 Tiny 私有 pnpm/Node、用户配置目录、父进程目录和三平台常见命令目录。macOS GUI 会话可发现 `/usr/local/bin` 与 `/opt/homebrew/bin`，Windows/Linux 同步覆盖常见用户级 CLI 位置；不绑定 `wecom-cli` 或任何具体插件。
 - 设置页新增“额外命令目录”，支持每行一个绝对路径、去重和数量限制；更改在下一次 DSH 启动时生效。Tiny 私有运行时始终优先，不修改系统 PATH。
 - Unix 私有 Node 安装会安全恢复官方 `npm`、`npx` 启动入口；只接受指向私有 Node 自带脚本的链接，遇到异常同名文件会停止并报告，不覆盖用户内容。
-- 工作区恢复标准编辑菜单和复制、粘贴、全选快捷键；原生右键菜单可用，并可从应用菜单、托盘菜单或 `Cmd/Ctrl+Shift+I` 打开开发者工具，便于定位仅在 WKWebView、WebView2 或 WebKitGTK 中出现的问题。
-- 开发者工具只对无 Tiny 特权绑定的 DSH 工作区开放，不对设置窗口开放；正式包不启用远程调试端口。DSH Profile、认证、启动顺序和进程重启策略保持不变。
+- Tiny 私有 npm/npx 的缓存固定到可清理的 `runtime/npm-cache`，并传递给插件与任务子进程；不再回落到用户 `~/.npm`，避免历史 root-owned 缓存导致 `EPERM`。
+- 工作区恢复标准编辑菜单和复制、粘贴、全选快捷键；原生右键菜单可用。macOS/Windows 可从应用菜单、托盘菜单或 `Cmd/Ctrl+Shift+I` 打开开发者工具，便于定位 WKWebView/WebView2 特有问题。
+- 开发者工具只对无 Tiny 特权绑定的 DSH 工作区开放，不对设置窗口开放；正式包不启用远程调试端口。Wails beta.16/17 暂不支持 Linux `production,devtools` 组合，Linux 保持安全的生产构建和普通右键，不退回会放宽设置窗口的全局 debug 构建。DSH Profile、认证、启动顺序和进程重启策略保持不变。
 
 升级请先从托盘或设置中真正退出旧版，再替换程序。保留独立数据目录。macOS 仍为 ad-hoc 签名，Windows 未商业签名。
 

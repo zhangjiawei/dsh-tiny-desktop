@@ -31,7 +31,7 @@ func (i *Installer) environment(r Runtime) []string {
 	for _, v := range os.Environ() {
 		k, _, _ := strings.Cut(v, "=")
 		switch strings.ToUpper(k) {
-		case "DSH_HOME", "DSH_PROFILE_DIR", "DSH_RUNTIME_DIR", "NODE_OPTIONS", "PATH", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY":
+		case "DSH_HOME", "DSH_PROFILE_DIR", "DSH_RUNTIME_DIR", "NODE_OPTIONS", "PATH", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NPM_CONFIG_CACHE", "NPM_CONFIG_REGISTRY":
 			continue
 		}
 		env = append(env, v)
@@ -44,6 +44,10 @@ func (i *Installer) environment(r Runtime) []string {
 		"DSH_PROFILE_DIR="+filepath.Join(i.Paths.Data, "profiles", "web"),
 		"DSH_RUNTIME_DIR="+runtimeDir(r, i.Paths),
 		"PATH="+executablePath(r, i.Settings.CommandPaths),
+		// Private executables must also keep their disposable caches private.
+		// DSH's subprocess runtime preserves this non-secret variable, so npx
+		// launched by plugins or tasks cannot fall back to a broken user ~/.npm.
+		"npm_config_cache="+filepath.Join(i.Paths.Runtime, "npm-cache"),
 		"CI=true",
 	)
 	env = append(env, "npm_config_registry="+i.Settings.Registry)

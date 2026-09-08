@@ -3,8 +3,9 @@
 ## 内嵌工作区与命令环境
 
 - DSH 工作区继续使用独立的 Wails WebView 窗口；控制中心与 DSH DOM、认证 Cookie 和插件页面保持隔离。
-- 工作区启用原生右键菜单，并可从应用/托盘菜单或 `Cmd/Ctrl+Shift+I` 打开开发者工具。正式包使用 Wails `production,devtools` 标签，但不开放远程调试端口；控制中心窗口也不启用开发者工具。
+- 工作区启用原生右键菜单；macOS/Windows 可从应用/托盘菜单或 `Cmd/Ctrl+Shift+I` 打开开发者工具。两平台正式包使用 Wails `production,devtools` 标签但不开放远程调试端口，控制中心窗口也不启用开发者工具。Wails beta.16/17 的 Linux devtools 构建约束不兼容 production，Linux 暂保持生产构建与普通右键，不用全局 debug 模式放宽控制窗口。
 - DSH 子进程的 `PATH` 固定以 Tiny 私有 pnpm 与 Node 开头，然后加入用户配置的绝对目录、macOS/Windows/Linux 常见 CLI 目录和桌面会话继承目录。插件启动的后续任务会继承该环境。
+- npm/npx 的可丢弃缓存固定在 Tiny `runtime/npm-cache`，不读取或污染用户 `~/.npm`；该普通环境变量会继续传递到任务子进程。
 - 安全解压仍拒绝归档中的符号链接；Tiny 只在已校验的私有 Node 目录中恢复官方 `npm`/`npx` 入口，且拒绝覆盖异常文件或指向未知目标的链接。
 
 ## 已确认范围

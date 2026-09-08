@@ -90,8 +90,16 @@ func TestProductionPackagesCompileDeveloperToolsForExplicitWorkspaceDiagnostics(
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(contents), `"production,devtools"`) {
-		t.Fatal("production package would compile OpenDevTools as a no-op")
+	source := string(contents)
+	if !strings.Contains(source, `platform === "linux" ? "production" : "production,devtools"`) {
+		t.Fatal("release tags do not preserve production mode and supported workspace diagnostics")
+	}
+	workflow, err := os.ReadFile("../../.github/workflows/release.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(workflow), `go build -tags production,devtools`) {
+		t.Fatal("Windows native smoke would compile OpenDevTools as a no-op")
 	}
 }
 

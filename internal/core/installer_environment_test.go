@@ -16,13 +16,18 @@ func TestInstallerEnvironmentPinsIndependentProfile(t *testing.T) {
 	}
 	t.Setenv("DSH_PROFILE_DIR", filepath.Join(t.TempDir(), "wrong-profile"))
 	t.Setenv("DSH_RUNTIME_DIR", filepath.Join(t.TempDir(), "wrong-runtime"))
+	t.Setenv("npm_config_cache", filepath.Join(t.TempDir(), "wrong-cache"))
+	t.Setenv("NPM_CONFIG_REGISTRY", "https://wrong.invalid")
 
 	installer := Installer{Paths: paths, Settings: Defaults()}
 	values := map[string]string{}
+	counts := map[string]int{}
 	for _, item := range installer.environment(Runtime{Node: "node", Bin: "bin"}) {
 		key, value, ok := strings.Cut(item, "=")
 		if ok {
-			values[strings.ToUpper(key)] = value
+			key = strings.ToUpper(key)
+			values[key] = value
+			counts[key]++
 		}
 	}
 
@@ -31,6 +36,14 @@ func TestInstallerEnvironmentPinsIndependentProfile(t *testing.T) {
 	}
 	if got, want := values["DSH_RUNTIME_DIR"], filepath.Join(paths.Runtime, "dsh"); got != want {
 		t.Fatalf("plugin verification can read the wrong runtime: got %q, want %q", got, want)
+	}
+	if got, want := values["NPM_CONFIG_CACHE"], filepath.Join(paths.Runtime, "npm-cache"); got != want {
+		t.Fatalf("task npm cache escaped the private runtime: got %q, want %q", got, want)
+	}
+	for _, key := range []string{"NPM_CONFIG_CACHE", "NPM_CONFIG_REGISTRY"} {
+		if counts[key] != 1 {
+			t.Fatalf("managed environment key %s occurred %d times", key, counts[key])
+		}
 	}
 }
 

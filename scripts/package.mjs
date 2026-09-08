@@ -10,6 +10,11 @@ const arch =
   process.env.GOARCH || { x64: "amd64", arm64: "arm64" }[process.arch];
 const platform = process.platform;
 const os = { darwin: "macos", win32: "windows", linux: "linux" }[platform];
+// Wails beta.16 does not provide the Linux WebKit methods for the combined
+// production,devtools tags. Keep Linux in production mode rather than exposing
+// the privileged control window through a full debug build; macOS and Windows
+// retain explicit workspace-only diagnostics.
+const buildTags = platform === "linux" ? "production" : "production,devtools";
 function run(cmd, args) {
   const env = { ...process.env, GOARCH: arch };
   if (platform === "darwin") {
@@ -69,7 +74,7 @@ if (platform === "darwin") {
   run("go", [
     "build",
     "-tags",
-    "production,devtools",
+    buildTags,
     "-trimpath",
     "-ldflags",
     `-s -w -X main.version=${version}`,
@@ -101,7 +106,7 @@ if (platform === "darwin") {
   run("go", [
     "build",
     "-tags",
-    "production,devtools",
+    buildTags,
     "-trimpath",
     "-ldflags",
     `-s -w -X main.version=${version}` +
