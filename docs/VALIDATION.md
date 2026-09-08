@@ -9,6 +9,8 @@
 - `0.3.4` ad-hoc 签名 Intel 包的版本、Mach-O x86_64 架构、严格签名和 ZIP 完整性检查通过后替换本机 App。普通启动复用现有 Runtime/Profile 并在 3080 认证就绪；真实 LaunchAgent 指向 `/Applications/DSH Tiny.app/Contents/MacOS/dsh-tiny`、包含 `--hidden` 且权限为 0644。
 - 安装后的真实 App 以 `--hidden` 启动时仍完成 DSH 认证，原生状态为 `visible=false`、0 个窗口和 1 个 status menu item；点击菜单栏图标恢复一个 DSH 工作区窗口，App/DSH PID 均保持不变。设置最终明确保存三个开启值；替换前后 Profile 均为 21732 个文件、165 个会话文件。
 - 隔离 App、截图、临时 HOME/Profile、旧版回退副本、四个交叉编译文件及工程 `dist` / `bin` 构建产物均已删除，约 112 MiB 临时资源已释放；正式 v0.3.4 App、真实独立数据和运行中的 DSH 保留。
+- `main` 工作流 [`34225239283`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34225239283) 六个平台全部成功。正式标签工作流 [`34227240993`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34227240993) 再次完成六平台真实 DSH/插件/PTY、恢复、打包和原生门禁；Windows x64 job `102064252311`、Windows ARM64 job `102064252657` 与 release job `102069911998` 均成功。
+- 公开正式版 [`v0.3.4`](https://github.com/zhangjiawei/dsh-tiny-desktop/releases/tag/v0.3.4) 为 Latest、非 Draft、非 Pre-release。发布后重新下载六个平台归档及 `SHA256SUMS.txt`，六项哈希与压缩完整性全部匹配；解包确认 macOS Mach-O x86_64/arm64、Windows GUI PE x86-64/AArch64、Linux ELF x86-64/aarch64，两个 macOS App 均为 0.3.4 且通过 ad-hoc `codesign --verify --deep --strict`。约 99 MiB 下载与解包目录随后删除。
 
 ## v0.3.3 内嵌诊断与跨平台命令发现
 
