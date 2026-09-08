@@ -9,6 +9,9 @@
 - 本地 `go test -count=1 ./...`、`go test -race ./internal/core`、`go vet ./...`、`go mod tidy -diff` 全部通过。Windows x86-64/AArch64 的核心测试与正式 GUI 子系统桌面程序交叉编译通过，临时 PE 文件和目录均已删除。
 - 发布规则改为纯语义版本标签生成正式版、带后缀标签生成预览版；`v0.3.2` 因此是正式版。macOS x86-64 本地包的 Info.plist 版本为 0.3.2、最低系统 13.0，Mach-O 架构正确，ad-hoc `codesign --verify --deep --strict` 与 ZIP 完整性检查通过。
 - 原生 macOS 设置窗口完成布局检查；另在 1280×720 隔离静态预览检查待激活提示，没有横向溢出或遮挡。临时 App、预览服务、浏览器页、截图和设置目录均已关闭并删除；未读取或修改用户 `~/.dsh`、正式 Tiny 数据或已安装插件源码。
+- 最终 main 工作流 [`34179246194`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34179246194) 六平台全部成功；Windows x64/ARM64 都通过确认弹窗、显式重启、停止、再次启动和退出的原生 WebView2 门禁。
+- 正式标签工作流 [`34180402192`](https://github.com/zhangjiawei/dsh-tiny-desktop/actions/runs/34180402192) 用时 19 分 5 秒并成功完成六平台 build 与 release job，创建标记为 `Latest`、非 Pre-release 的公开正式版 [`v0.3.2`](https://github.com/zhangjiawei/dsh-tiny-desktop/releases/tag/v0.3.2)。
+- 发布后重新下载六个平台归档及 `SHA256SUMS.txt`，六项 SHA-256 与压缩完整性全部匹配。解包确认 macOS Mach-O x86_64/arm64、Windows GUI PE x86-64/AArch64、Linux ELF x86-64/AArch64；两个 macOS 包版本均为 0.3.2，并通过 ad-hoc `codesign --verify --deep --strict`。约 98 MiB 下载与解压目录随后删除，工程 `dist` / `bin` / `work` 保持为空。
 
 ## v0.3.1 反向代理与公网认证
 
