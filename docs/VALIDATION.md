@@ -1,5 +1,13 @@
 # 验证记录
 
+## v0.3.6 工作区诊断与崩溃恢复
+
+- `go test -count=1 ./...`、`go test -race -count=1 ./internal/core`、`go vet ./...`、`go mod tidy -diff`、前端 11 项测试与 TypeScript/前端构建通过；Windows amd64 `production,devtools` GUI 交叉编译产物通过 PE 检查。
+- 隔离 macOS Intel Bundle 使用独立 `DSH_TINY_HOME`、单实例 ID 与 39086 端口启动；真实 DSH 认证就绪，`settings.yaml` 同步 `locale.preference=zh`，设置文件未写入 token。右键操作不显示 WebView 原生菜单；菜单栏“开发者工具”打开真实 WKWebView Inspector，可见 Elements、Console、Network 等面板。
+- 对隔离候选注入 `SIGKILL` 后，旧 DSH 子进程被 reparent 到 PID 1；第二次启动仅按私有 runtime、`dsh/lib/bin.js` 和精确 `DSH_HOME` 匹配，清理旧 PID 并恢复 39086。恢复逻辑同时拒绝将僵尸 Tiny owner 视为活动所有者；正式 App、3080、QQ Browser DSH 与全局 DSH 全程未触碰。
+- 外链桥接使用 Wails 窗口 `JS` 选项在每次导航后注入；Inspector 控制台验证 `typeof window.__dshTinyExternalLinkBridge` 为 `boolean`。HTTP(S) 外链仍由严格校验后交给系统浏览器，同源 DSH 路由保持内嵌。复制、粘贴快捷键由原生 Edit 菜单保留。
+- macOS `0.3.6` App 通过 ad-hoc `codesign --verify --deep --strict`、Mach-O x86_64、Info.plist 版本和 ZIP 完整性检查；QA Bundle、临时 Profile、截图、端口与进程均已清理。Linux 正式包继续不显示不可用的开发者工具入口，需由发布 CI 完成原生验证。
+
 ## v0.3.5 外壳生命周期恢复
 
 - `go test -count=1 ./...`、`go test -race -count=1 ./internal/core`、`go vet ./...`、`go mod tidy -diff`、前端 11 项测试与 TypeScript/前端构建通过；Windows x64/ARM64 桌面程序交叉编译通过。

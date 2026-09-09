@@ -275,6 +275,12 @@ func (m *Manager) run(ctx context.Context, s Settings, done chan struct{}) {
 	if repaired > 0 {
 		m.log.Add(fmt.Sprintf("已恢复 %d 个导入工作空间的注册关系；修复前文件已保留为 workspace.json.tiny-v0.2.12-recovery", repaired))
 	}
+	if err = SyncDSHLocalePreference(m.paths.Data, s.Language, m.systemLanguage); err != nil {
+		// Locale propagation is useful but must not make an otherwise valid DSH
+		// profile unbootable. The DSH settings page remains available for a manual
+		// language change when this file is temporarily read-only or malformed.
+		m.log.Add("无法同步 DSH 界面语言，将使用 DSH 当前设置：" + Redact(err.Error()))
+	}
 	for attempt := 0; attempt < 3; attempt++ {
 		// After a bind race (including a LAN-only collision), do not keep trying
 		// the preferred port just because its loopback interface still looks free.

@@ -92,3 +92,8 @@ func terminateMarkedProcess(pid int, executable, dataDir string) bool {
 	}
 	return windows.TerminateProcess(h, 1) == nil
 }
+
+// Windows process ownership is enforced by Job Objects for the active child.
+// Keep marker-based recovery as the portable fallback; native enumeration is
+// intentionally omitted to avoid matching unrelated global DSH processes.
+func cleanupManagedOrphans(paths Paths, owners map[int]bool) []int { return nil }

@@ -35,11 +35,27 @@ func (m *Manager) recoverOrphan() {
 		return
 	}
 	// A second Tiny instance must never terminate the active owner's DSH child.
-	if marker.OwnerPID > 0 && processAlive(marker.OwnerPID) {
-		return
+	// Still clean up older abandoned children: a newly started Tiny may have
+	// selected another port, which would otherwise make the old child invisible
+	// once the marker is replaced by the new process.
+	owners := map[int]bool{os.Getpid(): true}
+	ownerAlive := marker.OwnerPID > 0 && processAlive(marker.OwnerPID)
+	if ownerAlive {
+		owners[marker.OwnerPID] = true
 	}
-	if terminateMarkedProcess(marker.PID, marker.Executable, m.paths.Data) {
+	if !ownerAlive && terminateMarkedProcess(marker.PID, marker.Executable, m.paths.Data) {
 		m.log.Add("已清理上次异常退出遗留的 DSH 服务")
+	}
+	for _, pid := range cleanupManagedOrphans(m.paths, owners) {
+		if pid != marker.PID {
+			m.log.Add("已清理旧 Tiny 实例遗留的 DSH 服务")
+		}
+	}
+	// A transient second-instance process must not erase the active owner's
+	// recovery marker. The Wails single-instance callback will wake that owner;
+	// its normal shutdown remains responsible for clearing the marker.
+	if ownerAlive {
+		return
 	}
 	_ = os.Remove(path)
 }

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -39,5 +40,22 @@ func TestProcessMarkerDoesNotClearAnotherOwner(t *testing.T) {
 	m.clearProcessMarker(43210)
 	if _, err = os.Stat(processMarkerPath(paths)); err != nil {
 		t.Fatalf("marker for another owner was cleared: %v", err)
+	}
+}
+
+func TestRecoverOrphanPreservesLiveOwnerMarker(t *testing.T) {
+	root := t.TempDir()
+	paths, err := NewPaths(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	marker := []byte(`{"pid":43210,"ownerPid":` + fmt.Sprint(os.Getpid()) + `,"executable":"node"}`)
+	if err = AtomicWrite(processMarkerPath(paths), marker, 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := &Manager{paths: paths}
+	m.recoverOrphan()
+	if _, err = os.Stat(processMarkerPath(paths)); err != nil {
+		t.Fatalf("live owner's recovery marker was removed: %v", err)
 	}
 }

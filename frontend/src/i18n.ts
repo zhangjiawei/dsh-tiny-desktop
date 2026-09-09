@@ -159,8 +159,8 @@ const en: Record<string, string> = {
   语言: "Language",
   跟随系统: "Follow system",
   简体中文: "简体中文",
-  "默认跟随系统语言。仅控制桌面外壳，DSH 工作空间语言由其自身设置管理。":
-    "Follows the system by default. This controls the desktop shell; the DSH workspace has its own language settings.",
+  "默认跟随系统语言。启动 DSH 时同步工作空间语言；DSH 内部切换会在下次启动时按此设置恢复。":
+    "Follows the system by default. DSH workspace language is synchronized at startup; an in-DSH switch is restored to this choice on the next start.",
   "关闭时从 Dock / 任务栏隐藏":
     "Hide from Dock / taskbar when closed",
   "开启后仅保留菜单栏 / 系统托盘图标。单击恢复窗口，右键打开菜单；不会停止 DSH。":

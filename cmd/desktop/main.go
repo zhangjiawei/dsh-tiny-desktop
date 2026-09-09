@@ -19,7 +19,7 @@ import (
 	"github.com/zhangjiawei/dsh-tiny-desktop/internal/core"
 )
 
-var version = "0.3.5"
+var version = "0.3.6"
 
 // QA builds may override this via -ldflags to test in an isolated app instance.
 var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
@@ -28,6 +28,28 @@ var instanceID = "com.zhangjiawei.dsh-tiny-desktop"
 // binaries leave this empty; neither environment variables nor app settings
 // can turn on a debugging port in a normal release.
 var webviewDebugPort = ""
+
+// The DSH page remains the source of truth for navigation. This capture-phase
+// listener only hands external HTTP(S) links to Tiny; same-origin DSH routes
+// continue to work inside the workspace as before.
+const workspaceExternalLinkBridge = `(function(){
+  if (window.__dshTinyExternalLinkBridge) return;
+  window.__dshTinyExternalLinkBridge = true;
+  document.addEventListener("click", function(event) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    var target = event.target;
+    var element = target && target.nodeType === 1 ? target : target && target.parentElement;
+    var anchor = element && element.closest ? element.closest("a[href]") : null;
+    if (!anchor) return;
+    try {
+      var link = new URL(anchor.href, window.location.href);
+      if ((link.protocol !== "http:" && link.protocol !== "https:") || link.origin === window.location.origin) return;
+      event.preventDefault();
+      event.stopPropagation();
+      window._wails && window._wails.invoke && window._wails.invoke(JSON.stringify({id:0, action:"externalLink", data:{url:link.href}}));
+    } catch (_) {}
+  }, true);
+})();`
 
 func main() {
 	p, err := core.NewPaths(os.Getenv("DSH_TINY_HOME"))
@@ -97,11 +119,6 @@ func main() {
 		SingleInstance: &application.SingleInstanceOptions{UniqueID: instanceID, OnSecondInstanceLaunch: func(application.SecondInstanceData) { showControl() }},
 		Mac:            application.MacOptions{ActivationPolicy: macPolicy, ApplicationShouldTerminateAfterLastWindowClosed: false},
 		RawMessageHandler: func(w application.Window, message string, origin *application.OriginInfo) {
-			// Window identity alone is insufficient: a trusted window could navigate to
-			// a hostile document. Require both the local origin and the top-level frame.
-			if origin == nil || !core.TrustedControlMessage(runtime.GOOS, w.Name(), origin.Origin, origin.TopOrigin, origin.IsMainFrame) {
-				return
-			}
 			if len(message) > 16384 {
 				return
 			}
@@ -111,6 +128,29 @@ func main() {
 				Data   json.RawMessage `json:"data"`
 			}
 			if json.Unmarshal([]byte(message), &request) != nil {
+				return
+			}
+			if request.Action == "externalLink" {
+				// The workspace gets one narrowly scoped capability: open a validated
+				// external link in the system browser. It cannot call Tiny controls.
+				expected, e := manager.LaunchURL()
+				if origin == nil || e != nil || !core.TrustedWorkspaceMessage(runtime.GOOS, origin.Origin, origin.TopOrigin, expected, origin.IsMainFrame) {
+					return
+				}
+				var data struct {
+					URL string `json:"url"`
+				}
+				if json.Unmarshal(request.Data, &data) != nil {
+					return
+				}
+				if u, ok := core.ExternalLinkURL(data.URL); ok {
+					go func() { _ = app.Browser.OpenURL(u) }()
+				}
+				return
+			}
+			// Window identity alone is insufficient: a trusted window could navigate to
+			// a hostile document. Require both the local origin and the top-level frame.
+			if origin == nil || !core.TrustedControlMessage(runtime.GOOS, w.Name(), origin.Origin, origin.TopOrigin, origin.IsMainFrame) {
 				return
 			}
 			go func() {
@@ -272,17 +312,26 @@ func main() {
 	workspace = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name: "workspace", Title: "DSH Tiny", Width: settings.Width, Height: settings.Height,
 		MinWidth: 760, MinHeight: 540, Hidden: true, AlwaysOnTop: settings.AlwaysOnTop, URL: "about:blank",
-		// The workspace has no privileged Tiny bindings. Enable its native menu and
-		// inspector so failures that only occur in WKWebView/WebView2/WebKitGTK can
-		// be diagnosed without changing or instrumenting upstream DSH code.
-		DevToolsEnabled: true, DefaultContextMenuDisabled: false,
-		CSS: `html { --default-contextmenu: show; }`,
+		// The workspace has no privileged Tiny bindings. Hide the native context
+		// menu while retaining an explicit inspector entry, so diagnostics do not
+		// depend on WebView-localised menu text or upstream DSH instrumentation.
+		DevToolsEnabled: true, DefaultContextMenuDisabled: true,
+		// Wails evaluates JS after each completed navigation on all desktop
+		// backends. Keeping the bridge in the window options avoids a race where
+		// an event hook fires before a remote DSH document is runtime-ready.
+		JS:  workspaceExternalLinkBridge,
+		CSS: `html { --default-contextmenu: hide; }`,
 		KeyBindings: map[string]func(application.Window){
 			"CmdOrCtrl+,":       func(application.Window) { showControl() },
 			"CmdOrCtrl+R":       func(w application.Window) { w.Reload() },
 			"CmdOrCtrl+Shift+I": func(w application.Window) { w.OpenDevTools() },
 		},
 	})
+	// Reinstall after every DSH navigation so a reload or SPA-level document
+	// replacement cannot silently lose the default-browser link behavior.
+	workspace.RegisterHook(events.Mac.WebViewDidFinishNavigation, func(*application.WindowEvent) { workspace.ExecJS(workspaceExternalLinkBridge) })
+	workspace.RegisterHook(events.Windows.WebViewNavigationCompleted, func(*application.WindowEvent) { workspace.ExecJS(workspaceExternalLinkBridge) })
+	workspace.RegisterHook(events.Linux.WindowLoadFinished, func(*application.WindowEvent) { workspace.ExecJS(workspaceExternalLinkBridge) })
 	hideToTray := func() {
 		// Hide every native window, so Windows/Linux remove their taskbar entries.
 		// macOS additionally needs an accessory activation policy to remove Dock.
@@ -335,7 +384,9 @@ func main() {
 	addMenu(menu, "设置", "Settings", func(*application.Context) { showControl() })
 	menu.AddSeparator()
 	addMenu(menu, "刷新", "Reload", func(*application.Context) { workspace.Reload() })
-	addMenu(menu, "开发者工具", "Developer tools", func(*application.Context) { workspace.OpenDevTools() })
+	if runtime.GOOS != "linux" {
+		addMenu(menu, "开发者工具", "Developer tools", func(*application.Context) { workspace.OpenDevTools() })
+	}
 	addMenu(menu, "放大", "Zoom in", func(*application.Context) { workspace.ZoomIn() })
 	addMenu(menu, "缩小", "Zoom out", func(*application.Context) { workspace.ZoomOut() })
 	addMenu(menu, "恢复缩放", "Reset zoom", func(*application.Context) { workspace.ZoomReset() })
@@ -354,7 +405,9 @@ func main() {
 	appMenu := app.NewMenu()
 	appSubmenu := appMenu.AddSubmenu("DSH Tiny")
 	addMenu(appSubmenu, "设置", "Settings", func(*application.Context) { showControl() })
-	addMenu(appSubmenu, "开发者工具", "Developer tools", func(*application.Context) { workspace.OpenDevTools() })
+	if runtime.GOOS != "linux" {
+		addMenu(appSubmenu, "开发者工具", "Developer tools", func(*application.Context) { workspace.OpenDevTools() })
+	}
 	addMenu(appSubmenu, "退出", "Quit", func(*application.Context) { app.Quit() })
 	// Replacing Wails' default application menu must preserve native edit roles;
 	// otherwise copy/paste shortcuts fail in both control inputs and web content.

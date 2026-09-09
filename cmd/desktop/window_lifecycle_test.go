@@ -69,14 +69,26 @@ func TestWorkspaceKeepsEmbeddedDiagnosticsWithoutPrivilegingControlPage(t *testi
 	if !strings.Contains(source, `Name: "workspace"`) || !strings.Contains(source, `DevToolsEnabled: true`) {
 		t.Fatal("embedded workspace diagnostics are not enabled")
 	}
-	if !strings.Contains(source, `--default-contextmenu: show`) {
-		t.Fatal("workspace right-click menu is not forced on")
+	if !strings.Contains(source, `DefaultContextMenuDisabled: true`) || !strings.Contains(source, `--default-contextmenu: hide`) {
+		t.Fatal("workspace native right-click menu is not disabled")
 	}
 	if !strings.Contains(source, `CmdOrCtrl+Shift+I`) || !strings.Contains(source, `workspace.OpenDevTools()`) {
 		t.Fatal("workspace developer tools lack an explicit shortcut/menu action")
 	}
 	if !strings.Contains(source, `appMenu.AddRole(application.EditMenu)`) {
 		t.Fatal("standard clipboard menu is missing")
+	}
+	if !strings.Contains(source, `action:"externalLink"`) || !strings.Contains(source, `workspaceExternalLinkBridge`) {
+		t.Fatal("workspace external-link bridge is missing")
+	}
+	if !strings.Contains(source, `JS:  workspaceExternalLinkBridge`) {
+		t.Fatal("workspace external-link bridge is not configured for every navigation")
+	}
+	if !strings.Contains(source, `events.Windows.WebViewNavigationCompleted`) || !strings.Contains(source, `events.Mac.WebViewDidFinishNavigation`) {
+		t.Fatal("workspace link bridge is not reinstalled after navigation")
+	}
+	if !strings.Contains(source, `runtime.GOOS != "linux"`) {
+		t.Fatal("developer-tools menu must reflect Linux Wails build limitations")
 	}
 	controlStart := strings.Index(source, `Name: "control"`)
 	workspaceStart := strings.Index(source, `Name: "workspace"`)

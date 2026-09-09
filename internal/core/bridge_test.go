@@ -67,3 +67,22 @@ func TestControlBridgeRejectsUntrusted(t *testing.T) {
 		t.Fatal("wrong window/frame accepted")
 	}
 }
+
+func TestWorkspaceLinkBridge(t *testing.T) {
+	expected := "http://127.0.0.1:3080/?token=secret"
+	if !TrustedWorkspaceMessage("darwin", expected, expected, expected, true) {
+		t.Fatal("trusted DSH workspace message rejected")
+	}
+	if TrustedWorkspaceMessage("darwin", "https://evil.test/", expected, expected, true) ||
+		TrustedWorkspaceMessage("darwin", expected, "https://evil.test/", expected, true) {
+		t.Fatal("untrusted workspace origin accepted")
+	}
+	for _, raw := range []string{"javascript:alert(1)", "file:///tmp/a", "data:text/html,x", "https://user:pass@example.com/"} {
+		if _, ok := ExternalLinkURL(raw); ok {
+			t.Fatalf("unsafe external URL accepted: %s", raw)
+		}
+	}
+	if got, ok := ExternalLinkURL("https://example.com/docs?q=1"); !ok || got != "https://example.com/docs?q=1" {
+		t.Fatalf("valid external URL rejected: %q %v", got, ok)
+	}
+}

@@ -45,3 +45,54 @@ func TrustedControlOrigin(window, origin string, mainFrame bool) bool {
 	}
 	return (u.Scheme == "wails" && u.Host == "localhost") || (u.Scheme == "http" && u.Host == "wails.localhost")
 }
+
+// TrustedWorkspaceMessage authenticates the intentionally tiny bridge exposed
+// to the DSH WebView. It accepts only messages from the currently running DSH
+// origin, never from an arbitrary page loaded into the workspace window.
+func TrustedWorkspaceMessage(platform, origin, topOrigin, expected string, mainFrame bool) bool {
+	if !mainFrame && platform != "windows" {
+		return false
+	}
+	expectedURL, err := url.Parse(expected)
+	if err != nil || expectedURL.User != nil || (expectedURL.Scheme != "http" && expectedURL.Scheme != "https") || expectedURL.Host == "" {
+		return false
+	}
+	expectedAuthority := strings.ToLower(expectedURL.Scheme + "://" + expectedURL.Host)
+	parseAuthority := func(raw string) string {
+		u, err := url.Parse(raw)
+		if err != nil || u.User != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return ""
+		}
+		return strings.ToLower(u.Scheme + "://" + u.Host)
+	}
+	if parseAuthority(origin) != expectedAuthority {
+		return false
+	}
+	if platform == "windows" {
+		originDocument, _, _ := strings.Cut(origin, "#")
+		topDocument, _, _ := strings.Cut(topOrigin, "#")
+		if originDocument != topDocument {
+			return false
+		}
+	}
+	if topOrigin != "" && parseAuthority(topOrigin) != expectedAuthority {
+		return false
+	}
+	return true
+}
+
+// ExternalLinkURL keeps browser hand-off deliberately narrow. Credentials,
+// local files, script URLs and other schemes must never leave the DSH window.
+func ExternalLinkURL(raw string) (string, bool) {
+	if len(raw) == 0 || len(raw) > 8192 {
+		return "", false
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Host == "" {
+		return "", false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "", false
+	}
+	return u.String(), true
+}
