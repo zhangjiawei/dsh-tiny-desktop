@@ -5,6 +5,8 @@ package core
 import (
 	"golang.org/x/sys/windows"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -51,4 +53,42 @@ func (g *processGroup) close() {
 		windows.CloseHandle(g.job)
 		g.job = 0
 	}
+}
+
+func processAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
+	if err != nil {
+		return false
+	}
+	windows.CloseHandle(h)
+	return true
+}
+
+func terminateMarkedProcess(pid int, executable, dataDir string) bool {
+	if pid <= 0 {
+		return false
+	}
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION|windows.PROCESS_TERMINATE, false, uint32(pid))
+	if err != nil {
+		return false
+	}
+	defer windows.CloseHandle(h)
+	var buffer [windows.MAX_PATH]uint16
+	size := uint32(len(buffer))
+	if err = windows.QueryFullProcessImageName(h, 0, &buffer[0], &size); err != nil {
+		return false
+	}
+	image := filepath.Clean(string(syscall.UTF16ToString(buffer[:size])))
+	// QueryFullProcessImageName returns only the executable path, not the
+	// command line. The managed Node path is the stable ownership boundary on
+	// Windows; checking the app data directory against the image would reject
+	// every valid marker because node.exe lives in runtime/, not dsh/.
+	_ = dataDir
+	if executable == "" || !strings.EqualFold(image, filepath.Clean(executable)) {
+		return false
+	}
+	return windows.TerminateProcess(h, 1) == nil
 }

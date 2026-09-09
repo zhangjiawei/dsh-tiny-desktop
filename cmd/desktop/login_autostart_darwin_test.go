@@ -22,4 +22,7 @@ func TestLoginLaunchAgentVisibility(t *testing.T) {
 	if !bytes.Contains(hidden, []byte("<string>--hidden</string>")) {
 		t.Fatal("hidden login item does not contain hidden argument")
 	}
+	if !bytes.Contains(hidden, []byte("<key>SuccessfulExit</key><false/>")) {
+		t.Fatal("login item must recover an abnormal app exit")
+	}
 }

@@ -57,7 +57,9 @@ func NewManager(p Paths, s Settings) *Manager {
 	// Recover disk space from an interrupted update while retaining exactly the
 	// active slot, one rollback slot and its matching control-state snapshot.
 	cleanupUpdateArtifacts(p)
-	return &Manager{paths: p, settings: s, activeSettings: s, phase: "stopped", systemLanguage: SystemLanguage(), log: Log{path: filepath.Join(p.Logs, "runtime.log")}}
+	m := &Manager{paths: p, settings: s, activeSettings: s, phase: "stopped", systemLanguage: SystemLanguage(), log: Log{path: filepath.Join(p.Logs, "runtime.log")}}
+	m.recoverOrphan()
+	return m
 }
 func (m *Manager) ReportError(err error) {
 	m.mu.Lock()
@@ -362,6 +364,10 @@ func (m *Manager) serve(ctx context.Context, i Installer, r Runtime, port int) (
 		return false, err
 	}
 	defer group.close()
+	if markerErr := m.writeProcessMarker(cmd.Process.Pid, executable); markerErr != nil {
+		m.log.Add("无法保存 DSH 进程标记；异常退出后需要手动重启：" + markerErr.Error())
+	}
+	defer m.clearProcessMarker(cmd.Process.Pid)
 	watchCtx, stopWatching := context.WithCancel(ctx)
 	defer stopWatching()
 	var profileChanges <-chan struct{}

@@ -42,11 +42,14 @@ func enableLoginLaunch(_ *application.App, hidden bool) error {
 	if err != nil {
 		return err
 	}
-	// Do not bootstrap the agent in the current session: registration should
-	// take effect at the next login and must never spawn a duplicate app now.
 	if err = core.AtomicWrite(path, body, 0644); err != nil {
 		return fmt.Errorf("保存登录启动项失败: %w", err)
 	}
+	// LaunchAgents are intentionally picked up at the next login. Bootstrapping
+	// here would launch a second hidden Tiny while the manually started instance
+	// is still initializing; that duplicate can start a DSH child before the
+	// single-instance callback wakes the existing UI. The next login and any
+	// future crash recovery are handled by launchd itself.
 	return nil
 }
 
@@ -83,6 +86,8 @@ func loginLaunchAgent(executable string, hidden bool) ([]byte, error) {
 		}
 		body.WriteString("</string>\n")
 	}
-	body.WriteString("</array>\n<key>RunAtLoad</key><true/>\n<key>KeepAlive</key><false/>\n</dict></plist>\n")
+	// SuccessfulExit=false means launchd recovers crashes and forced kills but
+	// respects an intentional app.Quit(), which exits successfully.
+	body.WriteString("</array>\n<key>RunAtLoad</key><true/>\n<key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>\n</dict></plist>\n")
 	return body.Bytes(), nil
 }
