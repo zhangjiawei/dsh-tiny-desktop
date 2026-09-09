@@ -1,5 +1,12 @@
 # 验证记录
 
+## v0.3.5 外壳生命周期恢复
+
+- `go test -count=1 ./...`、`go test -race -count=1 ./internal/core`、`go vet ./...`、`go mod tidy -diff`、前端 11 项测试与 TypeScript/前端构建通过；Windows x64/ARM64 桌面程序交叉编译通过。
+- macOS 本地安装包完成真实启动、独立 DSH 认证、进程标记写入和 3080 监听验证；旧版孤儿 DSH 已按精确 PID/运行目录清理，数据目录和 Profile 未改动。
+- macOS LaunchAgent 已验证包含 `KeepAlive.SuccessfulExit=false`、`RunAtLoad=true` 和 `--hidden`，当前会话不重复 bootstrap；手动启动保持单一 Tiny/DSH 进程。
+- 异常退出恢复路径覆盖进程标记读写、PID 所有者保护和 Windows 原生编译；Linux 原生 GUI 继续交由发布 CI 验证。
+
 ## v0.3.4 登录启动与隐藏窗口
 
 - 默认值、旧设置迁移和运行中保存回归确认“登录时启动”与“登录后隐藏窗口”均默认开启，外观设置保存不停止 DSH，也不产生待重启状态。前端门禁覆盖两个开关、从属禁用状态、`appearance` 通道和不调用进程重启。

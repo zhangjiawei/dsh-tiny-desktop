@@ -197,3 +197,13 @@ v0.2.4 公开预览版：设置窗口、国内仓库默认值、端口提示与�
 下载前请阅读 README 与 docs/VALIDATION.md。macOS 为 ad-hoc 签名而非 Apple 公证；Windows 未商业签名。Linux 需要 GTK4/WebKitGTK 6.0。认证链接包含完整权限，不要公开；新安装默认开启可信私有局域网分享（可关闭），HTTP 未加密，系统权限或防火墙可能阻止访问。第三方插件的模型调用、IM 平台绑定、通知能力仍需用户配置相应凭据与系统权限。
 
 构建产物不包含个人配置、密钥或运行时数据。SHA256SUMS.txt 可校验下载完整性；它不是商业发布者签名。
+## v0.3.5
+
+v0.3.5 正式版：修复 Tiny 外壳异常退出后 DSH 孤儿化，以及 macOS 登录启动项未注册到当前用户会话的问题。
+
+- macOS 登录启动项使用 `KeepAlive.SuccessfulExit=false`，登录启动的 Tiny 异常退出时由 launchd 恢复，正常退出不会反复拉起。
+- 不在当前手动运行会话中 bootstrap 登录项，避免启动隐藏副本并造成重复 DSH；登录项仍会在下一次登录时生效。
+- Tiny 为自己启动的 DSH 写入私有进程标记，下一次启动只校验 Tiny 运行目录和受管 Node 路径，安全清理上次异常退出遗留的服务，不扫描或影响系统及全局 DSH。
+- Windows 继续使用 Job Object 管理完整 DSH 子进程树；Linux/macOS 在下次 Tiny 启动时执行同样的受限残留恢复。
+
+本版本保持独立 Profile、端口自动检测、登录后隐藏窗口和现有绿白设置界面不变。macOS 仍为 ad-hoc 签名，Windows 未商业签名。
