@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"log"
 	"net/http"
@@ -49,6 +50,76 @@ const workspaceExternalLinkBridge = `(function(){
       window._wails && window._wails.invoke && window._wails.invoke(JSON.stringify({id:0, action:"externalLink", data:{url:link.href}}));
     } catch (_) {}
   }, true);
+})();`
+
+// The native download bridge handles any same-origin HTML download link.
+// It deliberately leaves ordinary navigation untouched and never sends the
+// authenticated launch URL back into the page or the system browser.
+const workspaceDownloadBridge = `(function(){
+  if (window.__dshTinyDownloadBridge) return;
+  window.__dshTinyDownloadBridge = true;
+  var toastTimer;
+  function isChinese() {
+    var value = (document.documentElement && document.documentElement.lang) || navigator.language || "";
+    return String(value).toLowerCase().indexOf("zh") === 0;
+  }
+  function showToast(status, detail) {
+    var toast = document.getElementById("dsh-tiny-download-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "dsh-tiny-download-toast";
+      toast.setAttribute("role", "status");
+      toast.setAttribute("aria-live", "polite");
+      toast.style.cssText = "position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:2147483647;max-width:min(560px,calc(100vw - 40px));padding:11px 16px;border-radius:8px;background:#252d28;color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.22);font:13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;opacity:0;pointer-events:none;transition:opacity .16s ease;white-space:pre-wrap;overflow-wrap:anywhere";
+      (document.body || document.documentElement).appendChild(toast);
+    }
+    var zh = isChinese();
+    var message = status === "success" ? (zh ? "文件已保存" : "File saved")
+      : status === "cancelled" ? (zh ? "已取消下载" : "Download cancelled")
+      : status === "pending" ? (zh ? "正在准备下载…" : "Preparing download…")
+      : (zh ? "下载失败：" : "Download failed: ") + (detail || (zh ? "请重试" : "Please try again"));
+    toast.textContent = message;
+    toast.setAttribute("role", status === "error" ? "alert" : "status");
+    toast.style.opacity = "1";
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toast.style.opacity = "0"; }, status === "pending" ? 120000 : 6000);
+  }
+  function sameOriginURL(raw) {
+    try {
+      var link = new URL(raw, window.location.href);
+      if ((link.protocol !== "http:" && link.protocol !== "https:") || link.origin !== window.location.origin) return null;
+      return link;
+    } catch (_) { return null; }
+  }
+  function request(link, filename) {
+    if (!window._wails || !window._wails.invoke) return false;
+    var id = Date.now() + Math.floor(Math.random() * 1000);
+    try {
+      showToast("pending");
+      window._wails.invoke(JSON.stringify({id:id, action:"download", data:{url:link.href, filename:filename || ""}}));
+      return true;
+    } catch (_) { showToast("error"); return false; }
+  }
+  document.addEventListener("click", function(event) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    var target = event.target;
+    var element = target && target.nodeType === 1 ? target : target && target.parentElement;
+    var anchor = element && element.closest ? element.closest("a[href]") : null;
+    if (!anchor) return;
+    // HTML's download attribute is the portable, page-owned signal. Do not
+    // guess from URL names such as "export" or "download", which are common
+    // in ordinary navigation routes.
+    var link = sameOriginURL(anchor.href);
+    if (!link || !anchor.hasAttribute("download")) return;
+    if (request(link, anchor.getAttribute("download") || "")) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
+  window.__dshTinyDownloadReply = function(id, status, error) {
+    showToast(status || (error ? "error" : "success"), error || "");
+    window.dispatchEvent(new CustomEvent("dsh-tiny-download", {detail:{id:id, status:status || (error ? "error" : "success"), error:error || ""}}));
+  };
 })();`
 
 func main() {
@@ -146,6 +217,40 @@ func main() {
 				if u, ok := core.ExternalLinkURL(data.URL); ok {
 					go func() { _ = app.Browser.OpenURL(u) }()
 				}
+				return
+			}
+			if request.Action == "download" {
+				// The download bridge is intentionally narrower than the external-link
+				// bridge: only the live workspace document may request a same-origin file.
+				expected, e := manager.LaunchURL()
+				if workspace == nil || origin == nil || e != nil || !core.TrustedWorkspaceMessage(runtime.GOOS, origin.Origin, origin.TopOrigin, expected, origin.IsMainFrame) {
+					return
+				}
+				var data struct {
+					URL      string `json:"url"`
+					Filename string `json:"filename"`
+				}
+				if json.Unmarshal(request.Data, &data) != nil {
+					return
+				}
+				go func() {
+					ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+					defer cancel()
+					_, err := downloadWorkspaceFile(ctx, manager, app, workspace, data.URL, data.Filename)
+					status := "success"
+					if errors.Is(err, errDownloadCancelled) {
+						status = "cancelled"
+					}
+					errorText := ""
+					if err != nil {
+						errorText = core.Redact(err.Error())
+						if status != "cancelled" {
+							status = "error"
+						}
+					}
+					payload, _ := json.Marshal([]any{request.ID, status, errorText})
+					workspace.ExecJS("window.__dshTinyDownloadReply?.(" + string(payload) + ")")
+				}()
 				return
 			}
 			// Window identity alone is insufficient: a trusted window could navigate to
@@ -319,7 +424,7 @@ func main() {
 		// Wails evaluates JS after each completed navigation on all desktop
 		// backends. Keeping the bridge in the window options avoids a race where
 		// an event hook fires before a remote DSH document is runtime-ready.
-		JS:  workspaceExternalLinkBridge,
+		JS:  workspaceExternalLinkBridge + workspaceDownloadBridge,
 		CSS: `html { --default-contextmenu: hide; }`,
 		KeyBindings: map[string]func(application.Window){
 			"CmdOrCtrl+,":       func(application.Window) { showControl() },
@@ -329,9 +434,15 @@ func main() {
 	})
 	// Reinstall after every DSH navigation so a reload or SPA-level document
 	// replacement cannot silently lose the default-browser link behavior.
-	workspace.RegisterHook(events.Mac.WebViewDidFinishNavigation, func(*application.WindowEvent) { workspace.ExecJS(workspaceExternalLinkBridge) })
-	workspace.RegisterHook(events.Windows.WebViewNavigationCompleted, func(*application.WindowEvent) { workspace.ExecJS(workspaceExternalLinkBridge) })
-	workspace.RegisterHook(events.Linux.WindowLoadFinished, func(*application.WindowEvent) { workspace.ExecJS(workspaceExternalLinkBridge) })
+	workspace.RegisterHook(events.Mac.WebViewDidFinishNavigation, func(*application.WindowEvent) {
+		workspace.ExecJS(workspaceExternalLinkBridge + workspaceDownloadBridge)
+	})
+	workspace.RegisterHook(events.Windows.WebViewNavigationCompleted, func(*application.WindowEvent) {
+		workspace.ExecJS(workspaceExternalLinkBridge + workspaceDownloadBridge)
+	})
+	workspace.RegisterHook(events.Linux.WindowLoadFinished, func(*application.WindowEvent) {
+		workspace.ExecJS(workspaceExternalLinkBridge + workspaceDownloadBridge)
+	})
 	hideToTray := func() {
 		// Hide every native window, so Windows/Linux remove their taskbar entries.
 		// macOS additionally needs an accessory activation policy to remove Dock.

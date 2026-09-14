@@ -340,18 +340,36 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	if err = AtomicWrite(filepath.Join(profile, "pnpm-workspace.yaml"), []byte("autoInstallPeers: false\nnodeLinker: hoisted\nonlyBuiltDependencies:\n  - esbuild\n  - node-pty\n"), 0600); err != nil {
 		return r, err
 	}
-	args := []string{r.CLI, "plugin", "--profile", "web", "add", "--save-exact", registryArg}
-	for _, p := range selected {
-		args = append(args, p.Name+"@"+p.Version)
-	}
 	i.Log.Add("安装 6 个默认插件")
-	if err = i.run(ctx, r, args...); err != nil {
+	if err = i.reconcilePinnedPlugins(ctx, r, selected); err != nil {
 		return r, err
 	}
 	if err = AtomicWrite(receipt, expected, 0600); err != nil {
 		return r, err
 	}
 	return r, nil
+}
+
+// pinnedPluginArgs is shared by installation and rollback. Keeping the DSH
+// plugin command generic lets a profile carry user-added plugins while Tiny
+// restores only the versions known to work with the selected runtime slot.
+func pinnedPluginArgs(cli, registry string, plugins []Plugin) []string {
+	args := []string{cli, "plugin", "--profile", "web", "add", "--save-exact", "--registry=" + registry}
+	for _, plugin := range plugins {
+		if plugin.Name == "" || plugin.Version == "" {
+			continue
+		}
+		args = append(args, plugin.Name+"@"+plugin.Version)
+	}
+	return args
+}
+
+func (i *Installer) reconcilePinnedPlugins(ctx context.Context, r Runtime, plugins []Plugin) error {
+	args := pinnedPluginArgs(r.CLI, i.Settings.Registry, plugins)
+	if len(args) == 7 { // command fields only: there was no usable plugin entry
+		return errors.New("安装回执中没有可用的插件版本")
+	}
+	return i.run(ctx, r, args...)
 }
 
 func writeNativeBuildPolicy(dshDir string) ([]string, error) {

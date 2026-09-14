@@ -349,7 +349,11 @@ func (m *Manager) ApplyDSHUpdate(ctx context.Context) (DSHUpdateInfo, error) {
 		_ = os.RemoveAll(targetDir)
 	}
 	m.setUpdateStatus("正在安装并验证 DSH " + info.TargetVersion)
-	updater := Installer{Paths: m.paths, Settings: s, Log: &m.log, TargetVersion: info.TargetVersion, TargetDir: stageRuntime, PinnedPlugins: oldReceipt.Plugins}
+	// A DSH core upgrade is also a compatibility boundary for the six bundled
+	// plugins. Resolve their current registry versions for the target slot;
+	// reusing the old receipt here can pair a new core with an incompatible
+	// plugin (for example dsh-automation 0.1.30 on DSH 0.1.5).
+	updater := Installer{Paths: m.paths, Settings: s, Log: &m.log, TargetVersion: info.TargetVersion, TargetDir: stageRuntime}
 	if _, err = updater.Ensure(opCtx); err != nil {
 		_ = restoreUpdateState(m.paths, backup)
 		return info, fmt.Errorf("DSH 升级未完成，已保留原版本: %w", err)
@@ -373,13 +377,14 @@ func (m *Manager) ApplyDSHUpdate(ctx context.Context) (DSHUpdateInfo, error) {
 			m.stopService()
 			_ = writeManagedRuntimeState(m.paths, oldState)
 			restoreErr := restoreUpdateState(m.paths, backup)
+			profileErr := reconcileRollbackProfile(context.Background(), m.paths, s, oldVersion, oldDir, oldReceipt.Plugins, &m.log)
 			startErr := m.startService()
 			if startErr == nil {
 				startErr = m.waitForReady(context.Background(), 3*time.Minute)
 			}
 			_ = os.RemoveAll(targetDir)
-			if restoreErr != nil || startErr != nil {
-				return info, fmt.Errorf("新版本启动失败；自动回退也需要处理（数据恢复: %v，旧版启动: %v）: %w", restoreErr, startErr, err)
+			if restoreErr != nil || profileErr != nil || startErr != nil {
+				return info, fmt.Errorf("新版本启动失败；自动回退也需要处理（数据恢复: %v，插件恢复: %v，旧版启动: %v）: %w", restoreErr, profileErr, startErr, err)
 			}
 			return m.localUpdateInfo(), fmt.Errorf("新版本启动失败，已自动恢复 %s: %w", oldVersion, err)
 		}
@@ -393,6 +398,22 @@ func (m *Manager) ApplyDSHUpdate(ctx context.Context) (DSHUpdateInfo, error) {
 	keepBackup = true
 	m.setUpdateStatus("DSH 已升级到 " + info.TargetVersion)
 	return m.localUpdateInfo(), nil
+}
+
+func reconcileRollbackProfile(ctx context.Context, paths Paths, settings Settings, version, dir string, plugins []Plugin, log *Log) error {
+	if len(plugins) == 0 {
+		return nil
+	}
+	installer := &Installer{Paths: paths, Settings: settings, Log: log}
+	runtime, err := installer.node(ctx)
+	if err != nil {
+		return err
+	}
+	runtime.Version = version
+	runtime.DSHDir = dir
+	runtime.CLI = filepath.Join(dir, "node_modules/@deepseek-ai/dsh/lib/bin.js")
+	log.Add("升级失败，正在恢复与 DSH " + version + " 兼容的插件版本")
+	return installer.reconcilePinnedPlugins(ctx, runtime, plugins)
 }
 
 func (m *Manager) RollbackDSH(ctx context.Context) (DSHUpdateInfo, error) {

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -52,6 +53,32 @@ func TestManagedArgumentsCannotTakeOwnershipFromTiny(t *testing.T) {
 		if _, err = ParseManagedArgs(invalid); err == nil {
 			t.Errorf("accepted managed override %q", invalid)
 		}
+	}
+}
+
+func TestPinnedPluginArgsOnlyRestoreValidReceiptEntries(t *testing.T) {
+	args := pinnedPluginArgs("/private/dsh/bin.js", "https://registry.npmjs.org", []Plugin{
+		{Name: "dsh-better-sidebar", Version: "0.18.0"},
+		{Name: "", Version: "ignored"},
+		{Name: "dsh-automation", Version: "0.1.30"},
+	})
+	want := []string{"/private/dsh/bin.js", "plugin", "--profile", "web", "add", "--save-exact", "--registry=https://registry.npmjs.org", "dsh-better-sidebar@0.18.0", "dsh-automation@0.1.30"}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("pinned plugin args = %#v, want %#v", args, want)
+	}
+}
+
+func TestDSHUpgradeDoesNotReuseOldPluginPins(t *testing.T) {
+	source, err := os.ReadFile("dsh_update.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(source)
+	if !strings.Contains(text, "TargetVersion: info.TargetVersion, TargetDir: stageRuntime}") {
+		t.Fatal("DSH upgrades must resolve plugins for the target runtime")
+	}
+	if strings.Contains(text, "TargetVersion: info.TargetVersion, TargetDir: stageRuntime, PinnedPlugins: oldReceipt.Plugins") {
+		t.Fatal("DSH upgrades still reuse the old plugin receipt")
 	}
 }
 

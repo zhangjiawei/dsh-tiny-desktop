@@ -81,6 +81,18 @@ func TestWorkspaceKeepsEmbeddedDiagnosticsWithoutPrivilegingControlPage(t *testi
 	if !strings.Contains(source, `action:"externalLink"`) || !strings.Contains(source, `workspaceExternalLinkBridge`) {
 		t.Fatal("workspace external-link bridge is missing")
 	}
+	if !strings.Contains(source, `action:"download"`) || !strings.Contains(source, `workspaceDownloadBridge`) || !strings.Contains(source, `hasAttribute("download")`) {
+		t.Fatal("workspace generic download bridge is missing")
+	}
+	if !strings.Contains(source, `dsh-tiny-download-toast`) || !strings.Contains(source, `status === "cancelled"`) || !strings.Contains(source, `status === "error"`) {
+		t.Fatal("workspace download bridge lacks visible success/cancel/error feedback")
+	}
+	if !strings.Contains(source, `json.Marshal([]any{request.ID, status, errorText})`) {
+		t.Fatal("download reply does not carry an explicit status")
+	}
+	if strings.Contains(source, `/(download|export)/`) {
+		t.Fatal("workspace download bridge must not depend on DSH-specific URL names")
+	}
 	if !strings.Contains(source, `JS:  workspaceExternalLinkBridge`) {
 		t.Fatal("workspace external-link bridge is not configured for every navigation")
 	}
