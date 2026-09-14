@@ -84,8 +84,14 @@ func TestWorkspaceKeepsEmbeddedDiagnosticsWithoutPrivilegingControlPage(t *testi
 	if !strings.Contains(source, `action:"download"`) || !strings.Contains(source, `workspaceDownloadBridge`) || !strings.Contains(source, `hasAttribute("download")`) {
 		t.Fatal("workspace generic download bridge is missing")
 	}
+	if !strings.Contains(source, `HTMLAnchorElement.prototype.click`) || !strings.Contains(source, `nativeAnchorClick.call(this)`) {
+		t.Fatal("workspace download bridge does not cover detached programmatic anchors")
+	}
 	if !strings.Contains(source, `dsh-tiny-download-toast`) || !strings.Contains(source, `status === "cancelled"`) || !strings.Contains(source, `status === "error"`) {
 		t.Fatal("workspace download bridge lacks visible success/cancel/error feedback")
+	}
+	if !strings.Contains(source, `activeRequestID`) || !strings.Contains(source, `toast.remove()`) || !strings.Contains(source, `activeDownloadDialog`) || !strings.Contains(source, `dismissDownloadDialog`) {
+		t.Fatal("workspace download bridge does not converge stale toast state")
 	}
 	if !strings.Contains(source, `json.Marshal([]any{request.ID, status, errorText})`) {
 		t.Fatal("download reply does not carry an explicit status")

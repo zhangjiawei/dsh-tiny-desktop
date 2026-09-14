@@ -59,6 +59,8 @@ const workspaceDownloadBridge = `(function(){
   if (window.__dshTinyDownloadBridge) return;
   window.__dshTinyDownloadBridge = true;
   var toastTimer;
+  var activeRequestID = 0;
+  var activeDownloadDialog = null;
   function isChinese() {
     var value = (document.documentElement && document.documentElement.lang) || navigator.language || "";
     return String(value).toLowerCase().indexOf("zh") === 0;
@@ -82,7 +84,11 @@ const workspaceDownloadBridge = `(function(){
     toast.setAttribute("role", status === "error" ? "alert" : "status");
     toast.style.opacity = "1";
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function(){ toast.style.opacity = "0"; }, status === "pending" ? 120000 : 6000);
+    var lifetime = status === "pending" ? 30000 : 6000;
+    toastTimer = setTimeout(function(){
+      toast.style.opacity = "0";
+      if (status !== "pending") setTimeout(function(){ if (toast.style.opacity === "0") toast.remove(); }, 220);
+    }, lifetime);
   }
   function sameOriginURL(raw) {
     try {
@@ -95,10 +101,46 @@ const workspaceDownloadBridge = `(function(){
     if (!window._wails || !window._wails.invoke) return false;
     var id = Date.now() + Math.floor(Math.random() * 1000);
     try {
+      activeRequestID = id;
+      // Some web apps keep a success dialog open until the browser download
+      // manager reports completion. Remember the dialog that belongs to this
+      // request so the native save flow can dismiss only that dialog later.
+      activeDownloadDialog = document.querySelector('[role="dialog"], [aria-modal="true"]');
       showToast("pending");
       window._wails.invoke(JSON.stringify({id:id, action:"download", data:{url:link.href, filename:filename || ""}}));
       return true;
     } catch (_) { showToast("error"); return false; }
+  }
+  function dismissDownloadDialog() {
+    var dialog = activeDownloadDialog;
+    activeDownloadDialog = null;
+    if (!dialog || !dialog.isConnected) return;
+    var buttons = dialog.querySelectorAll ? dialog.querySelectorAll("button") : [];
+    var closeButton = null;
+    for (var i = 0; i < buttons.length; i++) {
+      var label = (buttons[i].getAttribute("aria-label") || buttons[i].textContent || "").trim().toLowerCase();
+      if (/^(close|dismiss|cancel|取消|关闭)$/.test(label)) {
+        closeButton = buttons[i];
+        break;
+      }
+    }
+    if (!closeButton && buttons.length) closeButton = buttons[buttons.length - 1];
+    if (closeButton && typeof closeButton.click === "function") closeButton.click();
+  }
+  // DSH session export creates a detached anchor and calls anchor.click(). A
+  // detached element does not bubble its synthetic click through document, so
+  // the document listener below cannot observe that portable browser pattern.
+  // Patch only the anchor method and only for same-origin download links; all
+  // other programmatic clicks retain the native WebView behavior.
+  if (window.HTMLAnchorElement && HTMLAnchorElement.prototype && HTMLAnchorElement.prototype.click) {
+    var nativeAnchorClick = HTMLAnchorElement.prototype.click;
+    try {
+      HTMLAnchorElement.prototype.click = function() {
+        var link = sameOriginURL(this.href);
+        if (link && this.hasAttribute("download") && request(link, this.getAttribute("download") || "")) return;
+        return nativeAnchorClick.call(this);
+      };
+    } catch (_) {}
   }
   document.addEventListener("click", function(event) {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -117,6 +159,8 @@ const workspaceDownloadBridge = `(function(){
     }
   }, true);
   window.__dshTinyDownloadReply = function(id, status, error) {
+    if (id && activeRequestID && id !== activeRequestID) return;
+    if (status !== "pending") dismissDownloadDialog();
     showToast(status || (error ? "error" : "success"), error || "");
     window.dispatchEvent(new CustomEvent("dsh-tiny-download", {detail:{id:id, status:status || (error ? "error" : "success"), error:error || ""}}));
   };
@@ -249,7 +293,12 @@ func main() {
 						}
 					}
 					payload, _ := json.Marshal([]any{request.ID, status, errorText})
-					workspace.ExecJS("window.__dshTinyDownloadReply?.(" + string(payload) + ")")
+					reply := "window.__dshTinyDownloadReply?.(" + string(payload) + ")"
+					workspace.ExecJS(reply)
+					// Closing a native save dialog can briefly hold the WebView event
+					// queue. A bounded second delivery makes the visible state converge
+					// without changing the download or starting it twice.
+					time.AfterFunc(250*time.Millisecond, func() { workspace.ExecJS(reply) })
 				}()
 				return
 			}
