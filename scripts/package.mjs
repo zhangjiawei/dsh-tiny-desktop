@@ -1,7 +1,7 @@
 // Native packaging is intentionally explicit: artifacts contain no developer
 // profile, credentials, node_modules or downloaded user runtime.
 import { spawnSync } from "node:child_process";
-import { mkdir, writeFile, copyFile } from "node:fs/promises";
+import { mkdir, writeFile, copyFile, readFile } from "node:fs/promises";
 import sharp from "../frontend/node_modules/sharp/lib/index.js";
 const version = process.env.VERSION || "0.3.6";
 if (!/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(version))
@@ -27,6 +27,17 @@ function run(cmd, args) {
 }
 await mkdir("dist", { recursive: true });
 await mkdir("bin", { recursive: true });
+// Keep the visible footer aligned with the native version injected by ldflags.
+// The source fallback remains readable for local frontend development, while
+// every packaged archive receives the exact VERSION used for its release tag.
+const builtIndex = "frontend/dist/index.html";
+try {
+  const html = await readFile(builtIndex, "utf8");
+  const updated = html.replace(/(<small>)v\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?(<\/small>)/, `$1v${version}$2`);
+  if (updated !== html) await writeFile(builtIndex, updated);
+} catch (error) {
+  throw Error(`Unable to inject packaged version into ${builtIndex}: ${error.message}`);
+}
 const base = `dsh-tiny-desktop-${version}-${os}-${arch}`;
 const icon = "frontend/dist/icon.png";
 if (platform === "darwin") {
