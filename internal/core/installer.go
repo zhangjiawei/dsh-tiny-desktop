@@ -277,6 +277,9 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	// not reinitialise a completed profile or silently upgrade its plugins.
 	if receiptErr == nil && previous.DSH == version && previous.PNPM == PnpmVersion {
 		if _, e := os.Stat(r.CLI); e == nil {
+			if e = ensureSessionMigrationSourceAllowlist(dshDir); e != nil {
+				return r, e
+			}
 			return r, nil
 		}
 	}
@@ -321,6 +324,9 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	}
 	if err = i.run(ctx, r, r.CLI, "--version"); err != nil {
 		return r, fmt.Errorf("DSH %s 自检失败: %w", version, err)
+	}
+	if err = ensureSessionMigrationSourceAllowlist(dshDir); err != nil {
+		return r, err
 	}
 	// Let the official CLI initialize and reconcile its profile. No private
 	// cordis config format is invented by the desktop shell.
