@@ -174,3 +174,12 @@ test("status polling never rewrites an open language picker", async () => {
   assert.equal(value, "语言");
   assert.equal(document.documentElement.lang, "zh-CN");
 });
+
+test("runtime logs remain selectable while status polling updates", async () => {
+  const client = await readFile(new URL("../frontend/src/main.ts", import.meta.url), "utf8");
+  const css = await readFile(new URL("../frontend/src/style.css", import.meta.url), "utf8");
+  assert.match(client, /function logSelectionActive\(output: HTMLElement\)/);
+  assert.match(client, /if \(logSelectionActive\(output\)\) \{\s*pendingLogText = text;/);
+  assert.match(client, /document\.addEventListener\("selectionchange"/);
+  assert.match(css, /#log-output\s*\{[\s\S]*user-select:\s*text;[\s\S]*cursor:\s*text;/);
+});

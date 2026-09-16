@@ -742,6 +742,8 @@ pre {
   height: calc(100vh - 154px);
   min-height: 340px;
   overflow: auto;
+  user-select: text;
+  cursor: text;
   background: #fff;
   color: #4f5a52;
   border: 1px solid var(--line);

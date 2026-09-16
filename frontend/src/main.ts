@@ -83,6 +83,8 @@ let source = "";
 let first = true;
 let dialogCopyAction = "copyShare";
 let pendingServiceAction: (() => Promise<void>) | undefined;
+let renderedLogText = "";
+let pendingLogText: string | undefined;
 (window as any).tinyReply = (id: number, value: any, error: string) => {
   const p = pending.get(id);
   if (!p) return;
@@ -121,6 +123,24 @@ function action(id: string, fn: () => Promise<unknown>) {
 }
 function serviceIsActive() {
   return Boolean(state && ["installing", "starting", "running"].includes(state.phase));
+}
+function logSelectionActive(output: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return false;
+  return output.contains(selection.anchorNode) && output.contains(selection.focusNode);
+}
+function updateLogOutput(text: string) {
+  const output = $("log-output");
+  if (text === renderedLogText) return;
+  // Do not replace the pre node while the user is selecting/copying text. The
+  // next status poll is retained and applied once the selection is released.
+  if (logSelectionActive(output)) {
+    pendingLogText = text;
+    return;
+  }
+  output.textContent = text;
+  renderedLogText = text;
+  pendingLogText = undefined;
 }
 function requestServiceInterruption(
   title: string,
@@ -169,9 +189,9 @@ function render(s: State) {
   $("settings-status").textContent = t(s.restartRequired
     ? "已保存，启动参数有待应用。下次启动生效，或点击“应用并重启”。"
     : "保存不会中断服务，启动参数在下次启动时生效。");
-  $("log-output").textContent = s.logs
+  updateLogOutput(s.logs
     .map((l) => `${l.time}  ${l.text}`)
-    .join("\n");
+    .join("\n"));
   const active = ["installing", "starting", "running"].includes(s.phase);
   const versionBusy = s.dshUpdate.busy;
   ($("start") as HTMLButtonElement).disabled = active || versionBusy;
@@ -529,4 +549,10 @@ async function poll() {
   }
 }
 setLanguage("system", navigator.language);
+document.addEventListener("selectionchange", () => {
+  if (!pendingLogText) return;
+  const output = $("log-output");
+  if (logSelectionActive(output)) return;
+  updateLogOutput(pendingLogText);
+});
 poll();
