@@ -1,3 +1,13 @@
+# v0.3.12
+
+v0.3.12 正式版：将 Tiny 默认 IM 插件替换为功能更完整的 `@xmanrui/dsh-im`。
+
+- 全新安装和明确的 DSH 运行时安装/升级会从配置的 npm 仓库解析 `@xmanrui/dsh-im` 最新版本，并写入精确版本回执。
+- 已有 Tiny Profile 检测到旧 `@michengai/dsh-im-connect` 时，仅在 Tiny 自己的 Web Profile 内执行一次移除旧包、安装新包；用户添加的其他插件、机器人凭据、会话和工作区数据保持不变。
+- 普通启动继续复用已完成 Profile，不会因联网检查或桌面程序升级而静默更新插件。
+
+升级桌面程序前请真正退出旧版 Tiny；不会删除独立 DSH Profile、凭据或会话数据。macOS 仍为 ad-hoc 签名，Windows 未商业签名。
+
 ## v0.3.11
 
 v0.3.11 正式版：修复运行日志在轮询刷新时无法选中复制的问题。

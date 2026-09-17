@@ -35,7 +35,7 @@ type Plugin struct {
 
 var Plugins = []Plugin{
 	{Name: "@michengai/dsh-codex-ui"},
-	{Name: "@michengai/dsh-im-connect"},
+	{Name: "@xmanrui/dsh-im"},
 	{Name: "@michengai/dsh-automation"},
 	{Name: "dshmarket"},
 	{Name: "task-complete-notify-for-dsh"},

@@ -20,6 +20,14 @@ type installReceipt struct {
 	Policy, Registry string
 }
 
+// Plugin replacements are applied only when an existing Tiny profile still
+// contains a package that this product has explicitly replaced. Keeping this
+// map separate from Plugins makes the one-time migration auditable and avoids
+// treating arbitrary user-added profile dependencies as disposable.
+var pluginReplacements = map[string]string{
+	"@michengai/dsh-im-connect": "@xmanrui/dsh-im",
+}
+
 var exactVersion = regexp.MustCompile(`^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
 
 func (i *Installer) readReceipt() (installReceipt, error) {
@@ -98,4 +106,78 @@ func (i *Installer) resolvePlugins(ctx context.Context) ([]Plugin, error) {
 		i.Log.Add("解析最新版 " + p.Name + "@" + meta.Version)
 	}
 	return selected, nil
+}
+
+func profileNeedsPluginMigration(profile string) (bool, error) {
+	contents, err := os.ReadFile(filepath.Join(profile, "package.json"))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var manifest struct {
+		Dependencies         map[string]string `json:"dependencies"`
+		DevDependencies      map[string]string `json:"devDependencies"`
+		OptionalDependencies map[string]string `json:"optionalDependencies"`
+	}
+	if err = json.Unmarshal(contents, &manifest); err != nil {
+		return false, fmt.Errorf("无法读取 Web profile 依赖清单: %w", err)
+	}
+	for oldName := range pluginReplacements {
+		if _, ok := manifest.Dependencies[oldName]; ok {
+			return true, nil
+		}
+		if _, ok := manifest.DevDependencies[oldName]; ok {
+			return true, nil
+		}
+		if _, ok := manifest.OptionalDependencies[oldName]; ok {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func obsoletePluginPackages(profile string, desired []Plugin) ([]string, error) {
+	contents, err := os.ReadFile(filepath.Join(profile, "package.json"))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var manifest struct {
+		Dependencies         map[string]string `json:"dependencies"`
+		DevDependencies      map[string]string `json:"devDependencies"`
+		OptionalDependencies map[string]string `json:"optionalDependencies"`
+	}
+	if err = json.Unmarshal(contents, &manifest); err != nil {
+		return nil, fmt.Errorf("无法读取 Web profile 依赖清单: %w", err)
+	}
+	present := func(name string) bool {
+		_, dependency := manifest.Dependencies[name]
+		if dependency {
+			return true
+		}
+		_, dependency = manifest.DevDependencies[name]
+		if dependency {
+			return true
+		}
+		_, dependency = manifest.OptionalDependencies[name]
+		return dependency
+	}
+	wanted := make(map[string]bool, len(desired))
+	for _, plugin := range desired {
+		wanted[plugin.Name] = true
+	}
+	removals := make([]string, 0, len(pluginReplacements))
+	for oldName, newName := range pluginReplacements {
+		switch {
+		case wanted[newName] && present(oldName):
+			removals = append(removals, oldName)
+		case wanted[oldName] && present(newName):
+			removals = append(removals, newName)
+		}
+	}
+	return removals, nil
 }

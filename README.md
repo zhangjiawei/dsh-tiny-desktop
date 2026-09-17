@@ -71,7 +71,7 @@ Windows 可读取的 OneDrive/Cloud Files 数据占位对象按普通数据复�
 | 插件 | 首次安装 |
 |---|---|
 | @michengai/dsh-codex-ui | 自动解析 latest |
-| @michengai/dsh-im-connect | 自动解析 latest |
+| @xmanrui/dsh-im | 自动解析 latest |
 | @michengai/dsh-automation | 自动解析 latest |
 | dshmarket | 自动解析 latest |
 | task-complete-notify-for-dsh | 自动解析 latest |

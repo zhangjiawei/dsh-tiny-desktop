@@ -199,6 +199,49 @@ func TestLatestPluginsResolveAndReceiptFreezesVersions(t *testing.T) {
 	}
 }
 
+func TestPluginReplacementMigratesOnlyLegacyIMPackage(t *testing.T) {
+	if len(Plugins) != 6 || Plugins[1].Name != "@xmanrui/dsh-im" {
+		t.Fatalf("default plugin list does not use xmanrui/dsh-im: %+v", Plugins)
+	}
+	if _, legacyStillPresent := pluginReplacements[Plugins[1].Name]; legacyStillPresent {
+		t.Fatal("replacement map points at the new package")
+	}
+	profile := filepath.Join(t.TempDir(), "profiles", "web")
+	if err := os.MkdirAll(profile, 0700); err != nil {
+		t.Fatal(err)
+	}
+	manifest := []byte(`{"dependencies":{"@michengai/dsh-im-connect":"0.1.34","user-plugin":"1.0.0"}}`)
+	if err := os.WriteFile(filepath.Join(profile, "package.json"), manifest, 0600); err != nil {
+		t.Fatal(err)
+	}
+	needs, err := profileNeedsPluginMigration(profile)
+	if err != nil || !needs {
+		t.Fatalf("legacy IM package was not detected: %v %v", needs, err)
+	}
+	if err := os.WriteFile(filepath.Join(profile, "package.json"), []byte(`{"dependencies":{"@xmanrui/dsh-im":"4.21.2","user-plugin":"1.0.0"}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	needs, err = profileNeedsPluginMigration(profile)
+	if err != nil || needs {
+		t.Fatalf("new IM package still needs migration: %v %v", needs, err)
+	}
+	removals, err := obsoletePluginPackages(profile, Plugins)
+	if err != nil || len(removals) != 0 {
+		t.Fatalf("new IM package unexpectedly scheduled for removal: %v %v", removals, err)
+	}
+	if err := os.WriteFile(filepath.Join(profile, "package.json"), []byte(`{"dependencies":{"@michengai/dsh-im-connect":"0.1.34","user-plugin":"1.0.0"}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	removals, err = obsoletePluginPackages(profile, Plugins)
+	if err != nil || !reflect.DeepEqual(removals, []string{"@michengai/dsh-im-connect"}) {
+		t.Fatalf("legacy IM package removal = %v, %v", removals, err)
+	}
+	removals, err = obsoletePluginPackages(profile, []Plugin{{Name: "@michengai/dsh-im-connect"}})
+	if err != nil || len(removals) != 0 {
+		t.Fatalf("legacy target should retain old IM package: %v, %v", removals, err)
+	}
+}
+
 func TestExistingInstallReusesReceiptWithoutRegistryAccess(t *testing.T) {
 	// With no system Node and an unreachable registry, this can only pass if a
 	// legacy install is reused without attempting a latest-version lookup.

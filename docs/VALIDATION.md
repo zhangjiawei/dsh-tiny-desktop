@@ -1,5 +1,12 @@
 # 验证记录
 
+## v0.3.12 IM 插件替换
+
+- 默认六插件清单已将 `@michengai/dsh-im-connect` 替换为上游 npm 稳定包 `@xmanrui/dsh-im`；2026-09-17 从 npm 官方源和 npmmirror 均解析到 `4.21.2`，包名、版本格式和仓库元数据通过核对。
+- 安装器只在 Tiny 私有 Web Profile 的 `package.json` 检测到旧 IM 包时执行一次迁移：先移除旧包，再以当前仓库的精确版本安装新包；用户自行安装的其他插件、凭据、会话和工作区不在迁移范围内。
+- 普通启动仍复用有效安装回执，不联网、不静默更新；显式 DSH 运行时升级会按已有事务流程更新 Profile，失败仍由原回退机制恢复。
+- `go test -count=1 ./internal/core` 已通过，覆盖新默认清单、旧包检测以及新包检测；完整测试、跨平台原生 GUI 和公开 Release 以本轮发布工作流结果为准。
+
 ## v0.3.6 工作区诊断与崩溃恢复
 
 - `go test -count=1 ./...`、`go test -race -count=1 ./internal/core`、`go vet ./...`、`go mod tidy -diff`、前端 11 项测试与 TypeScript/前端构建通过；Windows amd64 `production,devtools` GUI 交叉编译产物通过 PE 检查。

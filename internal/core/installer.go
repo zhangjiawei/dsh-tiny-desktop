@@ -271,11 +271,16 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	r.CLI = filepath.Join(dshDir, "node_modules/@deepseek-ai/dsh/lib/bin.js")
 	receipt := i.receiptPath(dshDir)
 	previous, receiptErr := i.readReceiptAt(receipt)
+	profile := filepath.Join(i.Paths.Data, "profiles/web")
+	needsPluginMigration, err := profileNeedsPluginMigration(profile)
+	if err != nil {
+		return r, err
+	}
 	// Preserve legacy pinned receipts too: ordinary launches must not silently
 	// upgrade plugins that are already installed in an existing user's profile.
 	// Registry is provenance, not installation identity: changing a mirror must
 	// not reinitialise a completed profile or silently upgrade its plugins.
-	if receiptErr == nil && previous.DSH == version && previous.PNPM == PnpmVersion {
+	if receiptErr == nil && previous.DSH == version && previous.PNPM == PnpmVersion && !needsPluginMigration {
 		if _, e := os.Stat(r.CLI); e == nil {
 			if e = ensureSessionMigrationSourceAllowlist(dshDir); e != nil {
 				return r, e
@@ -289,6 +294,10 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 		if err != nil {
 			return r, err
 		}
+	}
+	removals, err := obsoletePluginPackages(profile, selected)
+	if err != nil {
+		return r, err
 	}
 	policyName := "latest"
 	if len(i.PinnedPlugins) > 0 {
@@ -338,7 +347,6 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	if err = i.run(ctx, r, r.CLI, "plugin", "--profile", "web", "install", "--no-frozen-lockfile", registryArg); err != nil {
 		return r, err
 	}
-	profile := filepath.Join(i.Paths.Data, "profiles/web")
 	if _, err = os.Stat(profile); err != nil {
 		return r, errors.New("DSH profile 未在预期独立目录生成")
 	}
@@ -347,6 +355,12 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 		return r, err
 	}
 	i.Log.Add("安装 6 个默认插件")
+	for _, packageName := range removals {
+		i.Log.Add("迁移替代插件 " + packageName)
+		if err = i.run(ctx, r, r.CLI, "plugin", "--profile", "web", "remove", "--registry="+i.Settings.Registry, packageName); err != nil {
+			return r, fmt.Errorf("移除替代插件 %s 失败: %w", packageName, err)
+		}
+	}
 	if err = i.reconcilePinnedPlugins(ctx, r, selected); err != nil {
 		return r, err
 	}
