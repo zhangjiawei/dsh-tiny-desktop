@@ -24,7 +24,9 @@ const receiptBackup=receiptPath+'.recovery-fixture';
 const [originalManifest,originalLock,originalReceipt]=await Promise.all([manifestPath,lockPath,receiptPath].map(p=>readFile(p)));
 const receipt=JSON.parse(originalReceipt), manifest=JSON.parse(originalManifest);
 assert.equal(receipt.Plugins.length,6,'requires the production six-plugin smoke fixture');
-for (const plugin of receipt.Plugins) {
+const enabledPlugins=receipt.Plugins.filter(plugin=>!plugin.disabled);
+assert.ok(enabledPlugins.length>0,'requires at least one enabled plugin');
+for (const plugin of enabledPlugins) {
   assert.ok(manifest.dependencies[plugin.name]);
   delete manifest.dependencies[plugin.name];
 }
@@ -43,7 +45,7 @@ try {
   });
   assert.notEqual(broken.status,0,'stale lock fixture did not reproduce');
   assert.match((broken.stdout || '')+(broken.stderr || ''),/ERR_PNPM_OUTDATED_LOCKFILE/);
-  console.log('PASS: reproduced the real six-dependency frozen-lockfile failure');
+  console.log('PASS: reproduced the frozen-lockfile failure for enabled preset plugins');
   // Exercise production Manager.Start -> Installer.Ensure, not a patched pnpm
   // invocation. The normal smoke also verifies six plugins, PTY and shutdown.
   const repaired=spawnSync('go',['run','./cmd/smoke','--root',root],{stdio:'inherit',timeout:20*60*1000});
