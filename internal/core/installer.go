@@ -298,7 +298,7 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	// The notification package has no release for the 0.2 host API. Preserve
 	// its configuration, but do not exempt incompatible code from host checks.
 	for n := range selected {
-		if selected[n].Name == "task-complete-notify-for-dsh" && selected[n].Version == "0.2.0" && compareVersions(version, "0.2.0-rc.1") >= 0 {
+		if selected[n].Name == "task-complete-notify-for-dsh" && selected[n].Version == "0.2.0" && compareVersions(version, "0.1.2-rc.1") >= 0 {
 			selected[n].Disabled = true
 		}
 	}
