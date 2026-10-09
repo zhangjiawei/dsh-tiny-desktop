@@ -347,6 +347,16 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	// Let the official CLI initialize and reconcile its profile. No private
 	// cordis config format is invented by the desktop shell.
 	i.Log.Add("初始化独立 Web profile")
+	// CI=true keeps all child package managers non-interactive. A desktop
+	// profile, unlike the source repository, is mutable and may have an old lock
+	// after an interrupted install. Reconcile ONLY this private profile's lock;
+	// never remove it, set a global pnpm option, or disable frozen source builds.
+	if err = i.run(ctx, r, r.CLI, "plugin", "--profile", "web", "install", "--no-frozen-lockfile", registryArg); err != nil {
+		return r, err
+	}
+	// The profile initializer may restore preset packages after the first
+	// reconciliation. Remove incompatible presets only after that step so the
+	// host never attempts to boot with a rejected peer dependency.
 	for _, plugin := range selected {
 		if plugin.Disabled {
 			contents, _ := os.ReadFile(filepath.Join(profile, "package.json"))
@@ -361,13 +371,6 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 				}
 			}
 		}
-	}
-	// CI=true keeps all child package managers non-interactive. A desktop
-	// profile, unlike the source repository, is mutable and may have an old lock
-	// after an interrupted install. Reconcile ONLY this private profile's lock;
-	// never remove it, set a global pnpm option, or disable frozen source builds.
-	if err = i.run(ctx, r, r.CLI, "plugin", "--profile", "web", "install", "--no-frozen-lockfile", registryArg); err != nil {
-		return r, err
 	}
 	if _, err = os.Stat(profile); err != nil {
 		return r, errors.New("DSH profile 未在预期独立目录生成")
