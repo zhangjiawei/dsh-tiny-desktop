@@ -286,3 +286,8 @@ CI 修复记录：Windows Dock 服务补齐 x/image/x/text 模块记录；`.gita
 
 - Explicit text selection and native context menu enabled for the control page. Status renders pause during a selection, and identical plugin lists retain DOM nodes.
 - Frontend typecheck/build and 12 regression checks passed; macOS local bundle 0.3.12-local.2 rebuilt, signed and installed. Native clipboard interaction remains unverified.
+
+## v0.3.13 candidate (2026-10-09)
+
+- The first three tag runs failed at the real isolated DSH startup step on all six runners; no release assets were created. The old notification package was initially suspected, but the third run still failed after it was excluded, so that explanation was insufficient.
+- The published source default was still DSH 0.1.2-rc.1 while the local maintenance and plugin compatibility work targeted 0.2.0-rc.2. The next candidate updates the default and CI custom-command smoke to 0.2.0-rc.2. A fresh isolated local install is in progress; this is not yet six-platform validation.

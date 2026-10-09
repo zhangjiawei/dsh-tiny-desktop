@@ -15,7 +15,7 @@ import (
 )
 
 const Product = "dsh-tiny-desktop"
-const DSHVersion = "0.1.2-rc.1"
+const DSHVersion = "0.2.0-rc.2"
 const NodeVersion = "24.20.0"
 const PnpmVersion = "10.28.0"
 const DefaultRegistry = "https://registry.npmmirror.com"
@@ -109,7 +109,7 @@ func (s Settings) Validate() error {
 		case DSHChannelRecommended, DSHChannelStable, DSHChannelPreview:
 		case DSHChannelFixed:
 			if !exactVersion.MatchString(s.FixedDSHVersion) {
-				return errors.New("固定 DSH 版本必须是完整版本号，例如 0.1.2-rc.1")
+				return errors.New("固定 DSH 版本必须是完整版本号，例如 0.2.0-rc.2")
 			}
 		default:
 			return errors.New("请选择有效的 DSH 更新通道")

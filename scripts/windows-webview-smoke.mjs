@@ -21,7 +21,7 @@ assert.ok(root.startsWith(resolve(process.env.RUNNER_TEMP) + "\\"), "fresh GUI r
 await rm(root, {recursive:true, force:true});
 await mkdir(root, {recursive:true});
 const settingsPath = join(root, "settings.json");
-const defaultCommand = "pnpm --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=node-pty --allow-build=koffi dlx @deepseek-ai/dsh@0.1.2-rc.1 web";
+const defaultCommand = "pnpm --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=node-pty --allow-build=koffi dlx @deepseek-ai/dsh@0.2.0-rc.2 web";
 const settings = {port:3080, proxy:"", lan:false, hideOnClose:true, trayOnly:true,
   autoStart:true, alwaysOnTop:false, language:"en", command:defaultCommand, registry:"https://registry.npmjs.org",
   startupMinutes:60, width:1280, height:840};
@@ -131,7 +131,7 @@ try {
   assert.match(defaults.command,/^pnpm .* dlx @deepseek-ai\/dsh@.+ web$/);
   assert.equal(defaults.registry,'https://registry.npmmirror.com');
   const managedUI = await evaluate(`({mode:document.querySelector('#runtime-mode').value,managed:!document.querySelector('#managed-runtime').hidden,custom:document.querySelector('#custom-runtime').hidden,current:document.querySelector('#dsh-current').textContent})`);
-  assert.deepEqual(managedUI,{mode:'managed',managed:true,custom:true,current:'0.1.2-rc.1'});
+  assert.deepEqual(managedUI,{mode:'managed',managed:true,custom:true,current:'0.2.0-rc.2'});
   await evaluate(`document.querySelector('#runtime-mode').value='custom';document.querySelector('#runtime-mode').dispatchEvent(new Event('change'))`);
   assert.deepEqual(await evaluate(`({managed:document.querySelector('#managed-runtime').hidden,custom:!document.querySelector('#custom-runtime').hidden})`),{managed:true,custom:true});
   await evaluate(`document.querySelector('#runtime-mode').value='managed';document.querySelector('#runtime-mode').dispatchEvent(new Event('change'))`);

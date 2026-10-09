@@ -33,7 +33,7 @@ An independent, lightweight desktop home for [DeepSeek Harness](https://github.c
 高级模式可点击“填入 pnpm dlx 示例”获得以下命令（原生依赖需要明确许可，不能全部放行）：
 
 ```sh
-pnpm --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=node-pty --allow-build=koffi dlx @deepseek-ai/dsh@0.1.2-rc.1 web
+pnpm --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=node-pty --allow-build=koffi dlx @deepseek-ai/dsh@0.2.0-rc.2 web
 ```
 
 默认使用 npmmirror 国内镜像（镜像同步可能延迟）；自定义命令继承设置中的 HTTPS 仓库，显式 `--config.registry=…` 优先。pnpm 由本应用私有 Node 启动，dlx 缓存放在 `runtime/pnpm-cache`；不要求全局安装 pnpm。启动等待可设 1–120 分钟，默认 60 分钟。六插件仍在首次安装时解析所选仓库的 latest，安装回执存在时保持已安装版本。
@@ -77,7 +77,7 @@ Windows 可读取的 OneDrive/Cloud Files 数据占位对象按普通数据复�
 | task-complete-notify-for-dsh | 自动解析 latest |
 | dsh-better-sidebar | 自动解析 latest |
 
-DSH **0.1.2-rc.1**，pnpm **10.28.0**，Wails **v3.0.0-beta.16**。首次初始化通过官方 `dsh plugin --profile web` 安装并注册；关闭 peer 自动安装，由宿主提供 DSH API；原生构建仅允许列出的依赖。运行环境显式传递独立 `DSH_PROFILE_DIR` 和 `DSH_RUNTIME_DIR`，插件自助更新后的校验不会误读全局 `~/.dsh`。插件是独立第三方代码，有自己的许可证与网络/通知行为。
+DSH **0.2.0-rc.2**，pnpm **10.28.0**，Wails **v3.0.0-beta.16**。首次初始化通过官方 `dsh plugin --profile web` 安装并注册；关闭 peer 自动安装，由宿主提供 DSH API；原生构建仅允许列出的依赖。运行环境显式传递独立 `DSH_PROFILE_DIR` 和 `DSH_RUNTIME_DIR`，插件自助更新后的校验不会误读全局 `~/.dsh`。插件是独立第三方代码，有自己的许可证与网络/通知行为。
 
 ## 开发与验证
 
