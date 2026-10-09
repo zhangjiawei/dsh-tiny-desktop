@@ -48,13 +48,20 @@ func (m *Manager) VerifyInstallation(ctx context.Context) error {
 		return err
 	}
 	for _, p := range receipt.Plugins {
+		if p.Disabled {
+			continue
+		}
 		found := false
 		for _, bundle := range pkg.DSH.Profile.Bundles {
 			if bundle == p.Name {
 				found = true
 			}
 		}
-		if !found || pkg.Dependencies[p.Name] != p.Version {
+		var installed struct {
+			Version string `json:"version"`
+		}
+		contents, readErr := os.ReadFile(filepath.Join(m.paths.Data, "profiles/web/node_modules", p.Name, "package.json"))
+		if !found || pkg.Dependencies[p.Name] == "" || readErr != nil || json.Unmarshal(contents, &installed) != nil || installed.Version != p.Version {
 			return fmt.Errorf("插件未按固定版本注册: %s", p.Name)
 		}
 	}
@@ -72,7 +79,7 @@ func (m *Manager) VerifyInstallation(ctx context.Context) error {
 		dirs = append(dirs, matches...)
 	}
 	for _, dir := range dirs {
-		if err = i.run(ctx, r, "-e", verifyRuntimeScript, dir); err != nil {
+		if err = i.run(ctx, r, "-e", verifyRuntimeScript, dir, runtimeDir(r, m.paths)); err != nil {
 			return fmt.Errorf("原生终端验证失败: %w", err)
 		}
 	}

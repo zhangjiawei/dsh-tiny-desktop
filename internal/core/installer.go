@@ -295,6 +295,13 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 			return r, err
 		}
 	}
+	// The notification package has no release for the 0.2 host API. Preserve
+	// its configuration, but do not exempt incompatible code from host checks.
+	for n := range selected {
+		if selected[n].Name == "task-complete-notify-for-dsh" && selected[n].Version == "0.2.0" && compareVersions(version, "0.2.0-rc.1") >= 0 {
+			selected[n].Disabled = true
+		}
+	}
 	removals, err := obsoletePluginPackages(profile, selected)
 	if err != nil {
 		return r, err
@@ -340,6 +347,21 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	// Let the official CLI initialize and reconcile its profile. No private
 	// cordis config format is invented by the desktop shell.
 	i.Log.Add("初始化独立 Web profile")
+	for _, plugin := range selected {
+		if plugin.Disabled {
+			contents, _ := os.ReadFile(filepath.Join(profile, "package.json"))
+			var manifest struct {
+				Dependencies map[string]string `json:"dependencies"`
+			}
+			_ = json.Unmarshal(contents, &manifest)
+			if _, present := manifest.Dependencies[plugin.Name]; present {
+				i.Log.Add("停用不兼容的预置插件 " + plugin.Name + "；保留插件配置")
+				if err = i.run(ctx, r, r.CLI, "plugin", "--profile", "web", "remove", plugin.Name); err != nil {
+					return r, err
+				}
+			}
+		}
+	}
 	// CI=true keeps all child package managers non-interactive. A desktop
 	// profile, unlike the source repository, is mutable and may have an old lock
 	// after an interrupted install. Reconcile ONLY this private profile's lock;
@@ -357,7 +379,7 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 	i.Log.Add("安装 6 个默认插件")
 	for _, packageName := range removals {
 		i.Log.Add("迁移替代插件 " + packageName)
-		if err = i.run(ctx, r, r.CLI, "plugin", "--profile", "web", "remove", "--registry="+i.Settings.Registry, packageName); err != nil {
+		if err = i.run(ctx, r, r.CLI, "plugin", "--profile", "web", "remove", packageName); err != nil {
 			return r, fmt.Errorf("移除替代插件 %s 失败: %w", packageName, err)
 		}
 	}
@@ -376,7 +398,7 @@ func (i *Installer) Ensure(ctx context.Context) (Runtime, error) {
 func pinnedPluginArgs(cli, registry string, plugins []Plugin) []string {
 	args := []string{cli, "plugin", "--profile", "web", "add", "--save-exact", "--registry=" + registry}
 	for _, plugin := range plugins {
-		if plugin.Name == "" || plugin.Version == "" {
+		if plugin.Name == "" || plugin.Version == "" || plugin.Disabled {
 			continue
 		}
 		args = append(args, plugin.Name+"@"+plugin.Version)

@@ -1,6 +1,7 @@
 /* Quiet desktop proportions: one scrolling content pane, compact navigation,
    8px spacing rhythm, and green reserved for selection and primary actions. */
 :root {
+  --default-contextmenu: show;
   color-scheme: light;
   --green: #078441;
   --green-soft: #e9f6ee;
@@ -17,6 +18,8 @@
   display: none !important;
 }
 body {
+  -webkit-user-select: text;
+  user-select: text;
   overflow: hidden;
   margin: 0;
   background: var(--bg);

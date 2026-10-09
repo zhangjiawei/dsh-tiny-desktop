@@ -164,6 +164,7 @@ func resolveDSHTarget(ctx context.Context, s Settings) (string, error) {
 		if !exactVersion.MatchString(s.FixedDSHVersion) {
 			return "", errors.New("固定 DSH 版本无效")
 		}
+		return s.FixedDSHVersion, nil
 	}
 	meta, err := fetchPackageMetadata(ctx, s)
 	if err != nil {
@@ -293,7 +294,7 @@ func compareVersions(a, b string) int {
 	return 0
 }
 
-func (m *Manager) ApplyDSHUpdate(ctx context.Context) (DSHUpdateInfo, error) {
+func (m *Manager) ApplyDSHUpdate(ctx context.Context) (result DSHUpdateInfo, updateErr error) {
 	if !m.updateMu.TryLock() {
 		return m.localUpdateInfo(), errors.New("另一项 DSH 版本操作正在进行")
 	}
@@ -313,6 +314,9 @@ func (m *Manager) ApplyDSHUpdate(ctx context.Context) (DSHUpdateInfo, error) {
 	defer func() {
 		cancel()
 		m.mu.Lock()
+		if updateErr != nil {
+			m.updateStatus = Redact("DSH 升级失败: " + updateErr.Error())
+		}
 		m.updateBusy, m.updateCancel, m.updateDone = false, nil, nil
 		close(operationDone)
 		m.mu.Unlock()

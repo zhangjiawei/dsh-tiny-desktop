@@ -30,6 +30,36 @@ var pluginReplacements = map[string]string{
 
 var exactVersion = regexp.MustCompile(`^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
 
+func installedPresetPlugins(paths Paths) []Plugin {
+	profile := filepath.Join(paths.Data, "profiles/web")
+	var manifest struct {
+		DSH struct {
+			Profile struct {
+				Bundles []string `json:"bundles"`
+			} `json:"profile"`
+		} `json:"dsh"`
+	}
+	contents, _ := os.ReadFile(filepath.Join(profile, "package.json"))
+	_ = json.Unmarshal(contents, &manifest)
+	result := append([]Plugin(nil), Plugins...)
+	for n := range result {
+		result[n].Disabled = true
+		for _, bundle := range manifest.DSH.Profile.Bundles {
+			if bundle == result[n].Name {
+				result[n].Disabled = false
+			}
+		}
+		var installed struct {
+			Version string `json:"version"`
+		}
+		contents, err := os.ReadFile(filepath.Join(profile, "node_modules", result[n].Name, "package.json"))
+		if err == nil && json.Unmarshal(contents, &installed) == nil {
+			result[n].Version = installed.Version
+		}
+	}
+	return result
+}
+
 func (i *Installer) readReceipt() (installReceipt, error) {
 	_, dir := i.activeRuntime()
 	return i.readReceiptAt(i.receiptPath(dir))

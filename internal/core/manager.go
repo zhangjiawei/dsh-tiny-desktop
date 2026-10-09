@@ -29,6 +29,7 @@ type Snapshot struct {
 	PreferredPort       int           `json:"preferredPort"`
 	Defaults            Settings      `json:"defaults"`
 	DSHUpdate           DSHUpdateInfo `json:"dshUpdate"`
+	Plugins             []Plugin      `json:"plugins"`
 }
 type Manager struct {
 	mu                       sync.Mutex
@@ -79,6 +80,7 @@ func (m *Manager) Snapshot() Snapshot {
 		PreferredPort: m.activeSettings.Port, Defaults: Defaults()}
 	m.mu.Unlock()
 	snapshot.DSHUpdate = m.localUpdateInfo()
+	snapshot.Plugins = installedPresetPlugins(m.paths)
 	return snapshot
 }
 

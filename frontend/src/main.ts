@@ -31,6 +31,7 @@ type Settings = {
   height: number;
 };
 type State = {
+	plugins: { name: string; version: string; disabled: boolean }[];
   phase: string;
   error: string;
   port: number;
@@ -84,6 +85,7 @@ let first = true;
 let dialogCopyAction = "copyShare";
 let pendingServiceAction: (() => Promise<void>) | undefined;
 let renderedLogText = "";
+let renderedPluginText = "";
 let pendingLogText: string | undefined;
 (window as any).tinyReply = (id: number, value: any, error: string) => {
   const p = pending.get(id);
@@ -167,7 +169,23 @@ const labels: Record<string, string> = {
 };
 function render(s: State) {
   state = s;
+  // Status polling must not destroy a selection before the user copies it.
+  const selection = window.getSelection();
+  if (selection && !selection.isCollapsed && selection.toString()) return;
   setLanguage(s.settings.language, s.systemLanguage);
+  const pluginList = document.querySelector(".plugin-list");
+  const pluginText = JSON.stringify([language, s.plugins]);
+  if (pluginList && s.plugins && pluginText !== renderedPluginText) {
+    renderedPluginText = pluginText;
+    pluginList.replaceChildren(...s.plugins.map((plugin) => {
+      const row = document.createElement("span");
+      row.textContent = plugin.name;
+      const detail = document.createElement("small");
+      detail.textContent = `${plugin.version || (language === "en" ? "Not installed" : "未安装")} · ${plugin.disabled ? (language === "en" ? "Disabled" : "未启用") : (language === "en" ? "Enabled" : "已启用")}`;
+      row.append(detail);
+      return row;
+    }));
+  }
   $("phase").textContent = t(labels[s.phase] || s.phase);
   $("phase").className = "badge " + s.phase;
   $("port").textContent = `127.0.0.1 : ${s.port || "—"}`;

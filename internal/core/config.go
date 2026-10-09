@@ -29,8 +29,9 @@ const DSHChannelPreview = "preview"
 const DSHChannelFixed = "fixed"
 
 type Plugin struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
+	Name     string `json:"name"`
+	Version  string `json:"version"`
+	Disabled bool   `json:"disabled,omitempty"`
 }
 
 var Plugins = []Plugin{

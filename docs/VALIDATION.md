@@ -274,3 +274,15 @@ CI 修复记录：Windows Dock 服务补齐 x/image/x/text 模块记录；`.gita
 - macOS 仅 ad-hoc 签名，无 Apple Developer ID 公证；Windows 未商业签名。Linux 需要 GTK4/WebKitGTK 6.0。
 - 更新入口由用户下载替换，不做静默二进制覆盖；没有分屏。
 - DSH 和 Wails v3 本身仍为预发布版本，首次安装时的未来第三方 latest 版本可能引入兼容性变化，安装日志和精确版本回执用于排查。
+
+## Local DSH 0.2.0-rc.2 maintenance (2026-10-09)
+
+- Intel macOS: DSH 0.2.0-rc.2 authenticated startup, preset registration, and real native PTY creation/exit passed. Local Tiny bundle rebuilt and signature verified.
+- Presets: Codex UI 1.1.33, DSH IM 4.38.0, Automation 0.1.60, Market 1.66.14, Better Sidebar 0.24.1. Legacy notification 0.2.0 is disabled for incompatible host peers; configuration preserved.
+- Overview polls installed versions and bundle registration. Fixed-version resolution and failed-update status corrected. Core/desktop tests, frontend build/typecheck, and 12 frontend tests passed. Native visual inspection and other platforms remain unverified.
+- Old DSH slots and private download caches removed after boot/plugin/PTY validation; user data retained.
+
+### Settings text copying (2026-10-09)
+
+- Explicit text selection and native context menu enabled for the control page. Status renders pause during a selection, and identical plugin lists retain DOM nodes.
+- Frontend typecheck/build and 12 regression checks passed; macOS local bundle 0.3.12-local.2 rebuilt, signed and installed. Native clipboard interaction remains unverified.

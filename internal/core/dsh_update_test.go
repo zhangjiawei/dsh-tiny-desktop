@@ -300,3 +300,38 @@ func TestLifecycleConflictsAreBlockedAndStopCancelsUpdate(t *testing.T) {
 		t.Fatal("stop did not finish after cleanup")
 	}
 }
+
+func TestDisabledPluginNotAddedToTargetHost(t *testing.T) {
+	args := pinnedPluginArgs("bin.js", DefaultRegistry, []Plugin{{Name: "legacy-notifier", Version: "0.2.0", Disabled: true}, {Name: "compatible", Version: "1.0.0"}})
+	if strings.Contains(strings.Join(args, " "), "legacy-notifier") || !strings.Contains(strings.Join(args, " "), "compatible@1.0.0") {
+		t.Fatal(args)
+	}
+}
+
+func TestOverviewReadsInstalledVersionAndBundleState(t *testing.T) {
+	paths, _ := NewPaths(t.TempDir())
+	profile := filepath.Join(paths.Data, "profiles/web")
+	os.MkdirAll(filepath.Join(profile, "node_modules", Plugins[0].Name), 0700)
+	os.WriteFile(filepath.Join(profile, "package.json"), []byte(`{"dsh":{"profile":{"bundles":["@michengai/dsh-codex-ui"]}}}`), 0600)
+	pkg := filepath.Join(profile, "node_modules", Plugins[0].Name, "package.json")
+	os.WriteFile(pkg, []byte(`{"version":"1.1.33"}`), 0600)
+	got := installedPresetPlugins(paths)
+	if got[0].Version != "1.1.33" || got[0].Disabled || !got[4].Disabled {
+		t.Fatal(got)
+	}
+	os.WriteFile(pkg, []byte(`{"version":"1.1.34"}`), 0600)
+	if got = installedPresetPlugins(paths); got[0].Version != "1.1.34" {
+		t.Fatal(got)
+	}
+}
+
+func TestFixedVersionDoesNotQueryStableChannel(t *testing.T) {
+	s := Defaults()
+	s.DSHChannel = DSHChannelFixed
+	s.FixedDSHVersion = "0.2.0-rc.2"
+	s.Registry = "https://127.0.0.1:1"
+	got, err := resolveDSHTarget(context.Background(), s)
+	if err != nil || got != s.FixedDSHVersion {
+		t.Fatal(got, err)
+	}
+}

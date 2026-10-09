@@ -3,7 +3,12 @@
 const {createRequire}=require('node:module');
 const {join}=require('node:path');
 const req=createRequire(join(process.argv[1],'package.json'));
-const pty=req('node-pty');
+let pty;
+try { pty=req('node-pty'); } catch (error) {
+  // New profiles borrow native host dependencies instead of duplicating them.
+  if(error.code!=='MODULE_NOT_FOUND'||!process.argv[2]) throw error;
+  pty=createRequire(join(process.argv[2],'package.json'))('node-pty');
+}
 const child=pty.spawn(process.execPath,['-e','process.stdout.write("TINY_PTY_OK")'],{name:'xterm',cols:80,rows:24,cwd:process.cwd(),env:process.env});
 let output='';const timer=setTimeout(()=>{child.kill();process.exit(1)},15000);
 child.onData(data=>output+=data);
